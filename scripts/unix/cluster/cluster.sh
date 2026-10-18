@@ -42,7 +42,8 @@ _profile_field() {
   local file field="$1"
   file="$(_minikube_dir)/profiles/${DEVKIT_PROFILE}/config.json"
   [ -f "$file" ] || return 1
-  sed -n "s/^ *\"${field}\": *\"\{0,1\}\([^\",]*\)\"\{0,1\},\{0,1\}$/\1/p" "$file" | head -n 1
+  # minikube indents with tabs (older versions used spaces).
+  sed -n "s/^[[:space:]]*\"${field}\":[[:space:]]*\"\{0,1\}\([^\",]*\)\"\{0,1\},\{0,1\}[[:space:]]*$/\1/p" "$file" | head -n 1
 }
 
 cluster_exists() {

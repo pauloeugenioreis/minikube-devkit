@@ -75,8 +75,14 @@ while (`$true) {
         ArgumentList = @('-NoProfile', '-NonInteractive', '-EncodedCommand', $encoded)
         PassThru = $true
     }
-    if (Test-IsWindowsHost) { $startArgs.WindowStyle = 'Hidden' }
-    else { $startArgs.RedirectStandardOutput = [IO.Path]::Combine($logDir, "port-forward-$($Spec.Name).out") }
+    if (Test-IsWindowsHost) {
+        $startArgs.WindowStyle = 'Hidden'
+    } else {
+        # Without redirection the child inherits our stdout/stderr and keeps a
+        # calling pipeline (e.g. "devkit.ps1 up | tee") open forever.
+        $startArgs.RedirectStandardOutput = [IO.Path]::Combine($logDir, "port-forward-$($Spec.Name).out")
+        $startArgs.RedirectStandardError = [IO.Path]::Combine($logDir, "port-forward-$($Spec.Name).err")
+    }
     $proc = Start-Process @startArgs
     [IO.File]::WriteAllText((Join-Path $dir "$($Spec.Name).pid"), "$($proc.Id)")
     [IO.File]::WriteAllText((Join-Path $dir "$($Spec.Name).port"), "$try")

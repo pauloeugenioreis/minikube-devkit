@@ -4,41 +4,21 @@
 #            Desktop with winget (Chocolatey as fallback).
 # Configure: makes sure the user is in docker-users (re-login may be
 #            required), starts Docker Desktop and waits for the engine.
+# Update:    with DEVKIT_DOCKER_VERSION=latest, offers Docker Desktop updates
+#            published to winget/Chocolatey.
 
-$script:ProgramFilesDir = if ($env:ProgramFiles) { $env:ProgramFiles } else { 'C:\Program Files' }
 $script:DockerDesktopDir = [IO.Path]::Combine($script:ProgramFilesDir, 'Docker', 'Docker')
 $script:DockerDesktopExe = [IO.Path]::Combine($script:DockerDesktopDir, 'Docker Desktop.exe')
 
 # Exposes the Docker CLI shipped inside Docker Desktop when it is not on PATH.
 function Find-DockerCli {
     if (Test-Command 'docker') { return $true }
-    $bin = Join-Path $script:DockerDesktopDir 'resources\bin'
-    if (Test-Path -LiteralPath (Join-Path $bin 'docker.exe')) {
+    $bin = [IO.Path]::Combine($script:DockerDesktopDir, 'resources', 'bin')
+    if (Test-Path -LiteralPath ([IO.Path]::Combine($bin, 'docker.exe'))) {
         Add-ToPath $bin
         return $true
     }
     return $false
-}
-
-function Test-VirtualizationAvailable {
-    try {
-        if ((Get-CimInstance Win32_ComputerSystem -ErrorAction Stop).HypervisorPresent) { return $true }
-        return [bool] (@(Get-CimInstance Win32_Processor -ErrorAction Stop)[0].VirtualizationFirmwareEnabled)
-    } catch {
-        return $true # Unknown: let the installer report it.
-    }
-}
-
-function Test-WslReady {
-    if (-not (Test-Command 'wsl.exe')) { return $false }
-    & wsl.exe --status *> $null
-    return ($LASTEXITCODE -eq 0)
-}
-
-# Membership as seen by the current logon token (what the Docker pipe checks).
-function Test-InDockerUsersToken {
-    $groups = & whoami.exe /groups /fo csv 2>$null
-    return [bool] ($groups | Select-String -SimpleMatch 'docker-users')
 }
 
 function Test-DockerUsersGroupExists {
@@ -56,11 +36,14 @@ function Test-DockerEngine {
     return ($LASTEXITCODE -eq 0)
 }
 
+$script:DockerUpdateChecked = $false
+$script:DockerUpdate = $null
+
 Register-Dependency -Id 'driver_docker' -Label 'docker' `
     -Check {
         if (-not (Find-DockerCli)) {
             if (-not (Test-VirtualizationAvailable)) {
-                return New-DepResult $false 'not installed, and CPU virtualization (VT-x/AMD-V) is disabled in BIOS/UEFI; enable it first' $true
+                return New-DepResult $false "not installed, and $script:VirtualizationHint" $true
             }
             return New-DepResult $false 'not installed'
         }
@@ -80,19 +63,27 @@ Register-Dependency -Id 'driver_docker' -Label 'docker' `
             return New-DepResult $false "server $version is older than the required $(Get-Cfg 'DEVKIT_DOCKER_MIN_VERSION'); upgrade Docker Desktop" $true
         }
         if (-not $version) { $version = 'unknown' }
+        if ((Get-Cfg 'DEVKIT_DOCKER_VERSION' 'latest') -eq 'latest') {
+            if (-not $script:DockerUpdateChecked) {
+                $script:DockerUpdate = Get-PackageUpdate -WingetId 'Docker.DockerDesktop' -ChocoId 'docker-desktop'
+                $script:DockerUpdateChecked = $true
+            }
+            if ($script:DockerUpdate) {
+                $current = "Docker Desktop $($script:DockerUpdate.Current)"
+                return New-DepResult $true "ok (server $version, update available: Docker Desktop $($script:DockerUpdate.Available))" `
+                    -Current $current -Update $script:DockerUpdate.Available
+            }
+        }
         return New-DepResult $true "ok (server $version)"
+    } `
+    -Update {
+        Update-DevkitPackage -Name 'Docker Desktop' -WingetId 'Docker.DockerDesktop' -ChocoId 'docker-desktop'
+        $script:DockerUpdateChecked = $false
     } `
     -Install {
         if (Find-DockerCli) { return }
 
-        if (-not (Test-WslReady)) {
-            Write-Info 'Enabling WSL 2 (required by Docker Desktop)'
-            $code = Invoke-Elevated 'wsl.exe --install --no-distribution' 'enabling Windows features for WSL 2'
-            if ($code -ne 0) { Stop-Devkit "Enabling WSL 2 failed (exit $code). Run 'wsl --install' manually." }
-            if (-not (Test-WslReady)) {
-                Exit-Pending 'reboot' 'WSL 2 was enabled and Windows must restart to finish the installation.'
-            }
-        }
+        Initialize-Wsl 'Docker Desktop'
 
         Install-DevkitPackage -Name 'Docker Desktop' -WingetId 'Docker.DockerDesktop' -ChocoId 'docker-desktop'
         Update-SessionPath
@@ -103,7 +94,7 @@ Register-Dependency -Id 'driver_docker' -Label 'docker' `
 
         # The Docker engine pipe only accepts members of docker-users (and
         # elevated administrators).
-        if ((Test-DockerUsersGroupExists) -and -not (Test-InDockerUsersToken)) {
+        if ((Test-DockerUsersGroupExists) -and -not (Test-InGroupToken 'docker-users')) {
             if (-not (Test-InDockerUsersGroup)) {
                 $code = Invoke-Elevated "net.exe localgroup docker-users `"$env:USERDOMAIN\$env:USERNAME`" /add" 'adding your user to the docker-users group'
                 if ($code -ne 0) { Stop-Devkit "Could not add $env:USERNAME to docker-users (exit $code)." }

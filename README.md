@@ -5,8 +5,9 @@ A professional local environment for development, testing and DevOps automation 
 Redis, KEDA** and the **Kubernetes Dashboard** — ready-made scripts for **Windows, Linux
 and macOS**.
 
-> **Status:** early development. `up` works end to end with the `docker` driver; other
-> drivers, KEDA examples and tests are coming next (see [Roadmap](#roadmap)).
+> **Status:** early development. `up` works end to end with the `docker` driver; the
+> other drivers install and validate their prerequisites. KEDA examples and tests are
+> coming next (see [Roadmap](#roadmap)).
 
 ## Quick start
 
@@ -93,10 +94,44 @@ installed before you see the full list and confirm it.
 
 | Dependency | How it is installed |
 |---|---|
-| minikube, kubectl, helm | Official release binaries pinned in `config/devkit.env`, verified with SHA-256. Installed to `/usr/local/bin` (Linux/macOS) or `%LOCALAPPDATA%\minikube-devkit\bin` (Windows) |
-| Docker (Linux) | Docker Engine from Docker's repository (apt/dnf/yum) or the distribution package (pacman/zypper); enables the service and adds you to the `docker` group |
-| Docker (macOS) | Docker Desktop (default) or Colima via Homebrew (Homebrew is installed if missing, with your consent) |
-| Docker (Windows) | Enables WSL 2, installs Docker Desktop with winget (Chocolatey fallback), adds you to `docker-users` and starts it |
+| minikube, kubectl, helm | Official release binaries, verified with SHA-256. Installed to `/usr/local/bin` (Linux/macOS) or `%LOCALAPPDATA%\minikube-devkit\bin` (Windows) |
+
+### Drivers
+
+The wizard only lists the drivers supported by your OS and CPU:
+
+| Driver | Linux | macOS | Windows | What devkit sets up |
+|---|:-:|:-:|:-:|---|
+| `docker` (default) | ✔ | ✔ | ✔ | Linux: Docker Engine (Docker repo or distro package), service, `docker` group. macOS: Docker Desktop or Colima (Homebrew). Windows: WSL 2 + Docker Desktop (winget/Chocolatey), `docker-users` group |
+| `kvm2` | ✔ | | | KVM + libvirt, `libvirt` group, libvirt `default` network |
+| `qemu` | ✔ | ✔ | | QEMU; KVM acceleration on Linux (`kvm` group) |
+| `podman` (experimental) | ✔ | ✔ | ✔ | Linux: passwordless `sudo podman` rule (asks first). macOS/Windows: rootful `podman machine` sized for the cluster |
+| `virtualbox` | ✔ amd64 | ✔ Intel | ✔ amd64 | VirtualBox, kernel driver and `vboxusers` group on Linux |
+| `vfkit` | | ✔ | | vfkit (Apple Virtualization framework) |
+| `hyperkit` (deprecated) | | ✔ Intel | | HyperKit |
+| `hyperv` | | | ✔ Pro/Enterprise | Hyper-V feature (reboot), `Hyper-V Administrators` group (re-login) |
+
+Every VM driver also checks that CPU virtualization (VT-x/AMD-V) is enabled.
+
+### Versions and updates
+
+`DEVKIT_MINIKUBE_VERSION`, `DEVKIT_KUBECTL_VERSION` and `DEVKIT_HELM_VERSION` default to
+`latest`: the newest release is resolved on every run. When an older copy is installed,
+devkit asks before replacing it:
+
+```
+Update minikube v1.38.1 to the latest v1.39.0? [Y/n]:
+```
+
+Answering yes uninstalls the old copy with the tool that installed it (Homebrew, snap,
+apt/dnf/pacman, Chocolatey, Scoop, winget, or the plain file) and installs the new one.
+Set an exact version (e.g. `v1.38.1`) to pin a tool. Versions below `*_MIN_VERSION` must
+be updated.
+
+Docker, Podman and VirtualBox are updated through the package manager that installed
+them: `DEVKIT_DOCKER_VERSION`, `DEVKIT_PODMAN_VERSION` and `DEVKIT_VIRTUALBOX_VERSION`
+are `latest` (offer available updates) or `current` (never offer). `doctor` reports
+available updates without changing anything.
 
 Steps that need a **re-login or reboot** (joining the `docker` group, enabling WSL 2) are
 recorded in `.devkit/state`; run the same command again afterwards and it continues where
@@ -172,7 +207,8 @@ values are shared by both.
 - [x] Core CLIs and the `docker` driver on Linux, macOS and Windows
 - [x] Interactive setup wizard (`devkit up`): driver, resources and component selection
 - [x] Cluster, data services, KEDA and Kubernetes Dashboard
-- [ ] Other drivers: kvm2, hyperv, podman, virtualbox, qemu, vfkit
+- [x] Other drivers: kvm2, hyperv, podman, virtualbox, qemu, vfkit, hyperkit
+- [x] `latest` versions with update prompts
 - [ ] KEDA examples, operational commands, tests, CI and docs
 
 ## License

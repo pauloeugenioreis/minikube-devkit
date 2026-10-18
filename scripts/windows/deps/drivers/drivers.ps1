@@ -54,3 +54,47 @@ function Read-DriverOption {
 }
 
 $script:CliDriver = ''
+
+# ------------------------------------------------- helpers for driver modules ---
+
+$script:ProgramFilesDir = if ($env:ProgramFiles) { $env:ProgramFiles } else { 'C:\Program Files' }
+$script:VirtualizationHint = 'CPU virtualization (VT-x/AMD-V) is disabled; enable it in the BIOS/UEFI settings'
+
+# True when hardware virtualization is usable (or a hypervisor already runs).
+function Test-VirtualizationAvailable {
+    try {
+        if ((Get-CimInstance Win32_ComputerSystem -ErrorAction Stop).HypervisorPresent) { return $true }
+        return [bool] (@(Get-CimInstance Win32_Processor -ErrorAction Stop)[0].VirtualizationFirmwareEnabled)
+    } catch {
+        return $true # Unknown: let the installer report it.
+    }
+}
+
+function Test-WslReady {
+    if (-not (Test-Command 'wsl.exe')) { return $false }
+    & wsl.exe --status *> $null
+    return ($LASTEXITCODE -eq 0)
+}
+
+# Enables WSL 2 when missing; exits with a pending reboot when Windows must restart.
+function Initialize-Wsl {
+    param([Parameter(Mandatory)] [string] $RequiredBy)
+    if (Test-WslReady) { return }
+    Write-Info "Enabling WSL 2 (required by $RequiredBy)"
+    $code = Invoke-Elevated 'wsl.exe --install --no-distribution' 'enabling Windows features for WSL 2'
+    if ($code -ne 0) { Stop-Devkit "Enabling WSL 2 failed (exit $code). Run 'wsl --install' manually." }
+    if (-not (Test-WslReady)) {
+        Exit-Pending 'reboot' 'WSL 2 was enabled and Windows must restart to finish the installation.'
+    }
+}
+
+# True when the current logon token contains the group (by name or SID).
+function Test-InGroupToken {
+    param([Parameter(Mandatory)] [string] $Group)
+    $groups = & whoami.exe /groups /fo csv 2>$null
+    return [bool] ($groups | Select-String -SimpleMatch $Group)
+}
+
+# Size of a helper VM (Podman machine) that must hold the minikube node.
+function Get-HelperVmMemoryMb { [int] (Get-Cfg 'DEVKIT_MEMORY_MB') + 2048 }
+function Get-HelperVmDiskGb { [int] (Get-Cfg 'DEVKIT_DISK_GB') + 20 }

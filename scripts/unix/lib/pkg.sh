@@ -81,3 +81,68 @@ brew_ensure() {
   fi
   DEVKIT_PKG=brew
 }
+
+# ---------------------------------------------------------------- updates ---
+
+# "5:29.9.1-1~ubuntu.26.04~resolute" -> "29.9.1"
+pkg_pretty_version() {
+  local v="${1#*:}"
+  printf '%s\n' "${v%%-*}"
+}
+
+# pkg_available_update NAME [--cask]: prints the newer version offered by the
+# package manager for an installed package, or nothing (up to date, not
+# installed by this manager, or unknown). Uses the local package metadata.
+pkg_available_update() {
+  local name="$1" kind="${2:-}" installed candidate
+  pkg_detect
+  case "$DEVKIT_PKG" in
+    apt)
+      dpkg-query -W -f='${Status}' "$name" 2>/dev/null | grep -q 'ok installed' || return 0
+      installed="$(apt-cache policy "$name" 2>/dev/null | awk '/Installed:/ {print $2}')"
+      candidate="$(apt-cache policy "$name" 2>/dev/null | awk '/Candidate:/ {print $2}')"
+      if [ -n "$candidate" ] && [ "$candidate" != '(none)' ] && [ "$candidate" != "$installed" ]; then
+        pkg_pretty_version "$candidate"
+      fi
+      ;;
+    dnf|yum)
+      rpm -q "$name" >/dev/null 2>&1 || return 0
+      candidate="$("$DEVKIT_PKG" -q check-update "$name" 2>/dev/null | awk -v n="$name" 'index($1, n ".") == 1 {print $2; exit}')"
+      [ -z "$candidate" ] || pkg_pretty_version "$candidate"
+      ;;
+    pacman)
+      pacman -Q "$name" >/dev/null 2>&1 || return 0
+      pacman -Qu "$name" 2>/dev/null | awk '{print $4; exit}'
+      ;;
+    zypper)
+      rpm -q "$name" >/dev/null 2>&1 || return 0
+      zypper -q list-updates 2>/dev/null | awk -F'|' -v n="$name" '{gsub(/ /, "", $3)} $3 == n {gsub(/ /, "", $5); print $5; exit}'
+      ;;
+    brew)
+      if [ "$kind" = --cask ]; then
+        brew list --cask "$name" >/dev/null 2>&1 || return 0
+        # Cask versions may carry a build suffix ("4.42.0,195023").
+        brew outdated --cask --greedy --verbose "$name" 2>/dev/null | sed -n 's/.*!= *//p' | head -n 1 | cut -d, -f1
+      else
+        brew list --formula "$name" >/dev/null 2>&1 || return 0
+        brew outdated --verbose "$name" 2>/dev/null | sed -n 's/.*< *//p' | head -n 1
+      fi
+      ;;
+  esac
+  return 0
+}
+
+# pkg_upgrade [--cask] NAME...: upgrades installed packages to the newest version.
+pkg_upgrade() {
+  local cask=''
+  [ "${1:-}" = --cask ] && { cask=--cask; shift; }
+  pkg_detect
+  case "$DEVKIT_PKG" in
+    apt)     pkg_refresh; as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --only-upgrade "$@" ;;
+    dnf|yum) as_root "$DEVKIT_PKG" upgrade -y -q "$@" ;;
+    pacman)  as_root pacman -S --noconfirm "$@" ;;
+    zypper)  as_root zypper --non-interactive --quiet update "$@" ;;
+    brew)    if [ -n "$cask" ]; then run brew upgrade --cask --greedy "$@"; else run brew upgrade "$@"; fi ;;
+    *) die "No supported package manager found to upgrade: $*" ;;
+  esac
+}
