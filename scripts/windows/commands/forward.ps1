@@ -12,10 +12,10 @@ function Invoke-Forward {
             Show-ForwardStatus
         }
         '^stop$' { Stop-AllForwards; Write-Ok 'Port-forwards stopped' }
-        '^restart$' { Stop-AllForwards; return (Invoke-Forward @('start')) }
+        '^restart$' { Stop-AllForwards; Invoke-Forward @('start'); return }
         '^status$' { Show-ForwardStatus }
         '^(-h|--help|-Help)$' { Write-Host 'Usage: .\devkit.ps1 forward [start|stop|restart|status]' }
         default { Stop-Devkit "Unknown forward action: $action (use start, stop, restart or status)" }
     }
-    return 0
+    return
 }

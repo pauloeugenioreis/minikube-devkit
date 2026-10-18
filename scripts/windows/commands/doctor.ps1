@@ -20,7 +20,7 @@ function Invoke-Doctor {
     $Arguments = Read-DriverOption $Arguments
     for ($i = 0; $i -lt $Arguments.Count; $i++) {
         switch ($Arguments[$i]) {
-            { $_ -in '-h', '--help', '-Help' } { Write-Host 'Usage: .\devkit.ps1 doctor [-Driver NAME]'; return 0 }
+            { $_ -in '-h', '--help', '-Help' } { Write-Host 'Usage: .\devkit.ps1 doctor [-Driver NAME]'; return }
             default { Stop-Devkit "Unknown option for doctor: $($Arguments[$i])" }
         }
     }
@@ -102,8 +102,8 @@ function Invoke-Doctor {
     Write-Host ''
     if ($errors -gt 0) {
         Write-Err "$errors problem(s), $warnings warning(s)."
-        return 1
+        $script:DevkitExitCode = 1; return
     }
     Write-Ok "No problems found ($warnings warning(s))."
-    return 0
+    return
 }

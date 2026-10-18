@@ -60,3 +60,24 @@ exit_pending() {
   fi
   exit "$DEVKIT_EXIT_PENDING"
 }
+
+# ------------------------------------------------- what devkit installed ---
+# "|"-separated lists (paths may contain spaces), so "uninstall" only removes
+# what devkit itself added:
+#   INSTALLED_PKGS   manager:package entries (apt:docker-ce, brew-cask:...)
+#   INSTALLED_BINS   binaries copied into DEVKIT_BIN_DIR
+#   INSTALLED_FILES  system files created by devkit (repos, sudoers rules)
+
+# Prints one item per line.
+state_list() { state_get "$1" | tr '|' '\n' | sed '/^$/d'; }
+
+state_list_add() {
+  local key="$1" item="$2" current
+  current="$(state_get "$key")"
+  case "|${current}|" in *"|${item}|"*) return 0 ;; esac
+  state_set "$key" "${current:+${current}|}${item}"
+}
+
+state_clear_all() {
+  rm -f "$_STATE_FILE"
+}

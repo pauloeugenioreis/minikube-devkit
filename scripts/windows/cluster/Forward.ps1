@@ -70,14 +70,18 @@ while (`$true) {
 "@
     # -EncodedCommand avoids Start-Process argument quoting issues on 5.1.
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($loop))
+    $shell = (Get-Process -Id $PID).Path
     $startArgs = @{
-        FilePath = (Get-Process -Id $PID).Path
+        FilePath = $shell
         ArgumentList = @('-NoProfile', '-NonInteractive', '-EncodedCommand', $encoded)
         PassThru = $true
     }
     if (Test-IsWindowsHost) {
         $startArgs.WindowStyle = 'Hidden'
     } else {
+        # nohup: survive the SIGHUP sent when the launching terminal closes.
+        $startArgs.FilePath = 'nohup'
+        $startArgs.ArgumentList = @($shell) + $startArgs.ArgumentList
         # Without redirection the child inherits our stdout/stderr and keeps a
         # calling pipeline (e.g. "devkit.ps1 up | tee") open forever.
         $startArgs.RedirectStandardOutput = [IO.Path]::Combine($logDir, "port-forward-$($Spec.Name).out")

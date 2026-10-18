@@ -98,6 +98,7 @@ _podman_configure_linux() {
   printf '# Added by minikube-devkit for the minikube podman driver.\n%s ALL=(root) NOPASSWD: %s\n' "$user" "$podman_bin" > "$tmp"
   as_root visudo -cf "$tmp" >/dev/null || { rm -f "$tmp"; die "The generated sudoers rule is invalid."; }
   as_root install -m 0440 "$tmp" "$_PODMAN_SUDOERS"
+  state_list_add INSTALLED_FILES "$_PODMAN_SUDOERS"
   rm -f "$tmp"
 }
 

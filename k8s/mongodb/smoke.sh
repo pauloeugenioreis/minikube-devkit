@@ -1,0 +1,1 @@
+mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "quit(db.getSiblingDB(\"$MONGO_INITDB_DATABASE\").runCommand({ping: 1}).ok ? 0 : 1)"

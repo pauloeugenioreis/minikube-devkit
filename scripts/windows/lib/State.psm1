@@ -61,4 +61,30 @@ function Exit-Pending {
     exit (Get-ExitPendingCode)
 }
 
+# ------------------------------------------------- what devkit installed ---
+# "|"-separated lists (paths may contain spaces), so "uninstall" only removes
+# what devkit itself added:
+#   INSTALLED_PKGS   manager:package entries (winget:Docker.DockerDesktop, choco:...)
+#   INSTALLED_BINS   binaries copied into the devkit bin directory
+#   INSTALLED_PATHS  directories devkit added to the user PATH
+
+function Get-StateList {
+    param([Parameter(Mandatory)] [string] $Key)
+    $value = Get-State $Key
+    if (-not $value) { return @() }
+    return @($value -split '\|' | Where-Object { $_ })
+}
+
+function Add-StateListItem {
+    param([Parameter(Mandatory)] [string] $Key, [Parameter(Mandatory)] [string] $Item)
+    $items = Get-StateList $Key
+    if ($items -contains $Item) { return }
+    Set-State $Key ((@($items) + $Item) -join '|')
+}
+
+function Clear-AllState {
+    $file = Get-StateFile
+    if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file -Force }
+}
+
 Export-ModuleMember -Function *

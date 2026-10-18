@@ -154,7 +154,9 @@ function Install-CoreFile {
     $target = Join-Path $binDir (Get-ExeName $Tool)
     Copy-Item -LiteralPath $Source -Destination $target -Force
     if (-not (Test-IsWindowsHost)) { & chmod 0755 $target }
+    Add-StateListItem 'INSTALLED_BINS' $target
     Add-ToPath $binDir -Persist -Prepend
+    if (Test-IsWindowsHost) { Add-StateListItem 'INSTALLED_PATHS' $binDir }
     Assert-CoreResolves $Tool
 }
 

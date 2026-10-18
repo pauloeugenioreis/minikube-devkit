@@ -54,6 +54,7 @@ ${WIZARD_FLAGS_HELP}" "$@" || rc=$?
   cluster_ensure
   components_deploy
   keda_deploy
+  examples_deploy
 
   log_step "Port-forwards"
   forward_start_all
@@ -65,4 +66,7 @@ ${WIZARD_FLAGS_HELP}" "$@" || rc=$?
   log_info "Port-forwards run in background. Manage with: ./devkit.sh forward [start|stop|status]"
   log_info "Show this again anytime:  ./devkit.sh info"
   log_info "Stop everything:          ./devkit.sh down"
+  if is_true "$DEVKIT_INSTALL_KEDA"; then
+    log_info "See KEDA autoscale:       ./devkit.sh examples produce rabbitmq 50  (or: ./devkit.sh test keda)"
+  fi
 }

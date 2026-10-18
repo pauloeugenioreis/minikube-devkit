@@ -208,9 +208,9 @@ function Invoke-Configure {
     param([string[]] $Arguments = @())
     $usage = "Usage: .\devkit.ps1 configure [options]`n`nOptions:`n$script:WizardFlagsHelp"
     $opts = Read-WizardArgs $Arguments $usage
-    if ($null -eq $opts) { return 0 }
+    if ($null -eq $opts) { return }
     Invoke-Wizard $opts
     Write-Host ''
     Write-Ok 'Configuration saved to config\devkit.env'
-    return 0
+    return
 }

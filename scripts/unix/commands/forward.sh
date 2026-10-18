@@ -4,7 +4,7 @@
 cmd_forward() {
   case "${1:-status}" in
     start)
-      cluster_exists && cluster_running || die "Cluster '${DEVKIT_PROFILE}' is not running. Start it with: ./devkit.sh up"
+      require_cluster_running
       forward_start_all
       forward_status
       ;;

@@ -34,9 +34,35 @@ pkg_refresh() {
 
 pkg_refresh_reset() { _PKG_REFRESHED=0; }
 
+# Succeeds when the package is already installed by the current manager.
+pkg_is_installed() {
+  case "$DEVKIT_PKG" in
+    apt)         dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q 'ok installed' ;;
+    dnf|yum|zypper) rpm -q "$1" >/dev/null 2>&1 ;;
+    pacman)      pacman -Q "$1" >/dev/null 2>&1 ;;
+    brew)        brew list --formula "$1" >/dev/null 2>&1 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Base packages devkit may install but never removes on uninstall.
+_PKG_KEEP=' curl ca-certificates '
+
+# Records the packages a pkg_install call added (not the ones already present).
+_pkg_record() {
+  local prefix="$1" name
+  shift
+  for name in "$@"; do
+    case "$_PKG_KEEP" in *" ${name} "*) continue ;; esac
+    state_list_add INSTALLED_PKGS "${prefix}:${name}"
+  done
+}
+
 pkg_install() {
+  local name new=''
   pkg_detect
   pkg_refresh
+  for name in "$@"; do pkg_is_installed "$name" || new="${new} ${name}"; done
   log_info "Installing packages: $*"
   case "$DEVKIT_PKG" in
     apt)    as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@" ;;
@@ -47,12 +73,32 @@ pkg_install() {
     brew)   run brew install "$@" ;;
     *) die "No supported package manager found. Install manually: $*" ;;
   esac
+  # shellcheck disable=SC2086
+  [ -z "$new" ] || _pkg_record "$DEVKIT_PKG" $new
 }
 
 pkg_install_cask() {
+  local name new=''
   brew_ensure
+  for name in "$@"; do brew list --cask "$name" >/dev/null 2>&1 || new="${new} ${name}"; done
   log_info "Installing application: $*"
   run brew install --cask "$@"
+  # shellcheck disable=SC2086
+  [ -z "$new" ] || _pkg_record brew-cask $new
+}
+
+# pkg_remove MANAGER:PACKAGE: uninstalls a package recorded by pkg_install.
+pkg_remove() {
+  local manager="${1%%:*}" name="${1#*:}"
+  case "$manager" in
+    apt)       as_root env DEBIAN_FRONTEND=noninteractive apt-get remove -y -qq "$name" ;;
+    dnf|yum)   as_root "$manager" remove -y -q "$name" ;;
+    pacman)    as_root pacman -R --noconfirm "$name" ;;
+    zypper)    as_root zypper --non-interactive --quiet remove "$name" ;;
+    brew)      run brew uninstall --formula "$name" ;;
+    brew-cask) run brew uninstall --cask "$name" ;;
+    *) log_warn "Unknown package manager '${manager}' for ${name}; skipping." ;;
+  esac
 }
 
 # Makes sure Homebrew is available on macOS, installing it with consent.

@@ -1,0 +1,69 @@
+# Redis list-length autoscaling: 0 workers when the list is empty, one more
+# worker per 5 pending items (up to 10).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-worker
+  namespace: ${DEVKIT_EXAMPLES_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: redis-worker
+    app.kubernetes.io/part-of: minikube-devkit
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis-worker
+        app.kubernetes.io/part-of: minikube-devkit
+    spec:
+      containers:
+        - name: worker
+          image: ${DEVKIT_EXAMPLES_IMAGE}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MODE
+              value: redis-consume
+          envFrom:
+            - secretRef:
+                name: examples-credentials
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: redis-auth
+  namespace: ${DEVKIT_EXAMPLES_NAMESPACE}
+spec:
+  secretTargetRef:
+    - parameter: password
+      name: examples-credentials
+      key: REDIS_PASSWORD
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: redis-worker
+  namespace: ${DEVKIT_EXAMPLES_NAMESPACE}
+spec:
+  scaleTargetRef:
+    name: redis-worker
+  minReplicaCount: 0
+  maxReplicaCount: 10
+  pollingInterval: 5
+  cooldownPeriod: 30
+  triggers:
+    - type: redis
+      metadata:
+        address: redis.${DEVKIT_NAMESPACE}.svc.cluster.local:6379
+        listName: devkit-jobs
+        listLength: "5"
+      authenticationRef:
+        name: redis-auth

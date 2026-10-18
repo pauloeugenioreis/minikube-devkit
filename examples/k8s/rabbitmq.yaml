@@ -1,0 +1,70 @@
+# RabbitMQ queue-length autoscaling: 0 workers when the queue is empty, one
+# more worker per 5 waiting messages (up to 10).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq-worker
+  namespace: ${DEVKIT_EXAMPLES_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: rabbitmq-worker
+    app.kubernetes.io/part-of: minikube-devkit
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rabbitmq-worker
+        app.kubernetes.io/part-of: minikube-devkit
+    spec:
+      containers:
+        - name: worker
+          image: ${DEVKIT_EXAMPLES_IMAGE}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MODE
+              value: rabbitmq-consume
+          envFrom:
+            - secretRef:
+                name: examples-credentials
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: rabbitmq-auth
+  namespace: ${DEVKIT_EXAMPLES_NAMESPACE}
+spec:
+  secretTargetRef:
+    - parameter: host
+      name: examples-credentials
+      key: AMQP_URL
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: rabbitmq-worker
+  namespace: ${DEVKIT_EXAMPLES_NAMESPACE}
+spec:
+  scaleTargetRef:
+    name: rabbitmq-worker
+  minReplicaCount: 0
+  maxReplicaCount: 10
+  pollingInterval: 5
+  cooldownPeriod: 30
+  triggers:
+    - type: rabbitmq
+      metadata:
+        protocol: amqp
+        queueName: devkit-jobs
+        mode: QueueLength
+        value: "5"
+      authenticationRef:
+        name: rabbitmq-auth

@@ -24,10 +24,17 @@ Usage: .\devkit.ps1 <command> [options]
 Commands:
   up                 Run the setup wizard, install prerequisites and start the environment
   configure          Run the setup wizard only (saves answers to config\devkit.env)
+  status             Show the cluster, pods, KEDA ScaledObjects and port-forwards
   info               Show URLs and credentials (-NoSecrets hides passwords)
   forward ACTION     Manage port-forwards: start | stop | restart | status
+  logs NAME [-f]     Show logs of a component (e.g. postgresql, keda, redis-worker)
+  shell NAME         Open the client of a service (psql, mysql, mongosh, redis-cli)
+  reset NAME         Recreate a data service with an empty volume
+  examples ACTION    KEDA examples: deploy | remove | produce rabbitmq|redis [N]
+  test SUITE         Run tests: smoke | keda | unit | all
   down               Stop port-forwards and the cluster (data is kept)
-  destroy            Delete the cluster and all its data
+  destroy            Delete the cluster and all its data (optionally uninstall too)
+  uninstall          Remove everything minikube-devkit installed (after destroy)
   doctor             Check prerequisites, resources, ports and network (read-only)
   install-prereqs    Install and configure everything the selected driver needs
   version            Print the devkit version
@@ -69,11 +76,15 @@ try {
     }
     Import-DevkitConfig
 
-    $code = 0
+    # Commands are called as plain statements (not "$x = Invoke-..."): capturing
+    # their output would hide native output such as "minikube start" and take
+    # the terminal away from interactive commands ("devkit shell"). They report
+    # failure through $script:DevkitExitCode instead of a return value.
+    $script:DevkitExitCode = 0
     switch ($cli.Command) {
         { $_ -in 'help', '-h', '--help', '-Help' } { Show-Usage; exit 0 }
         { $_ -in 'version', '--version' } { Write-Host "minikube-devkit $DevkitVersion"; exit 0 }
-        { $_ -in 'up', 'configure', 'info', 'forward', 'down', 'destroy', 'doctor', 'install-prereqs' } { break }
+        { $_ -in 'up', 'configure', 'status', 'info', 'forward', 'logs', 'shell', 'reset', 'examples', 'test', 'down', 'destroy', 'uninstall', 'doctor', 'install-prereqs' } { break }
         default { Write-Err "Unknown command: $($cli.Command)"; Show-Usage; exit 1 }
     }
 
@@ -81,25 +92,32 @@ try {
     . (Join-Path $DevkitRoot 'scripts/windows/deps/core.ps1')
     . (Join-Path $DevkitRoot 'scripts/windows/deps/drivers/drivers.ps1')
     foreach ($driverModule in Get-DriverModuleFiles) { . $driverModule }
-    foreach ($clusterModule in @('Cluster', 'Components', 'Forward', 'Access')) {
+    foreach ($clusterModule in @('Cluster', 'Components', 'Forward', 'Access', 'Examples')) {
         . (Join-Path $DevkitRoot "scripts/windows/cluster/$clusterModule.ps1")
     }
-    foreach ($commandName in @('doctor', 'install-prereqs', 'configure', 'up', 'info', 'forward', 'down')) {
+    foreach ($commandName in @('doctor', 'install-prereqs', 'configure', 'up', 'status', 'info', 'forward', 'logs', 'shell', 'reset', 'examples', 'test', 'down', 'uninstall')) {
         . (Join-Path $DevkitRoot "scripts/windows/commands/$commandName.ps1")
     }
     Initialize-CorePath
 
     switch ($cli.Command) {
-        'up' { $code = Invoke-Up $cli.Rest }
-        'configure' { $code = Invoke-Configure $cli.Rest }
-        'info' { $code = Invoke-Info $cli.Rest }
-        'forward' { $code = Invoke-Forward $cli.Rest }
-        'down' { $code = Invoke-Down $cli.Rest }
-        'destroy' { $code = Invoke-Destroy $cli.Rest }
-        'doctor' { $code = Invoke-Doctor $cli.Rest }
-        'install-prereqs' { $code = Invoke-InstallPrereqs $cli.Rest }
+        'up' { Invoke-Up $cli.Rest }
+        'configure' { Invoke-Configure $cli.Rest }
+        'status' { Invoke-Status $cli.Rest }
+        'info' { Invoke-Info $cli.Rest }
+        'logs' { Invoke-Logs $cli.Rest }
+        'shell' { Invoke-Shell $cli.Rest }
+        'reset' { Invoke-Reset $cli.Rest }
+        'examples' { Invoke-Examples $cli.Rest }
+        'test' { Invoke-Test $cli.Rest }
+        'forward' { Invoke-Forward $cli.Rest }
+        'down' { Invoke-Down $cli.Rest }
+        'destroy' { Invoke-Destroy $cli.Rest }
+        'uninstall' { Invoke-Uninstall $cli.Rest }
+        'doctor' { Invoke-Doctor $cli.Rest }
+        'install-prereqs' { Invoke-InstallPrereqs $cli.Rest }
     }
-    exit ([int] (@($code)[-1]))
+    exit $script:DevkitExitCode
 } catch {
     $message = $_.Exception.Message
     if ($message.StartsWith('DEVKIT: ')) {

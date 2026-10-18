@@ -192,6 +192,7 @@ _core_install_binary() {
   download "$url" "${tmp}/${tool}" || { rm -rf "$tmp"; die "Download failed: $url"; }
   verify_sha256 "${tmp}/${tool}" "${url}.sha256" || { rm -rf "$tmp"; die "Checksum verification failed for ${tool}."; }
   install_binary "${tmp}/${tool}" "$DEVKIT_BIN_DIR" "$tool"
+  state_list_add INSTALLED_BINS "${DEVKIT_BIN_DIR}/${tool}"
   rm -rf "$tmp"
   _core_ensure_bin_on_path
   _core_assert_resolves "$tool"
@@ -213,6 +214,7 @@ _core_install_version() {
       verify_sha256 "${tmp}/helm.tar.gz" "${url}.sha256sum" || { rm -rf "$tmp"; die "Checksum verification failed for helm."; }
       tar -xzf "${tmp}/helm.tar.gz" -C "$tmp"
       install_binary "${tmp}/${platform}/helm" "$DEVKIT_BIN_DIR" helm
+      state_list_add INSTALLED_BINS "${DEVKIT_BIN_DIR}/helm"
       rm -rf "$tmp"
       _core_ensure_bin_on_path
       _core_assert_resolves helm

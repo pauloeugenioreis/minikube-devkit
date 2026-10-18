@@ -11,7 +11,7 @@ cmd_info() {
     esac
     shift
   done
-  cluster_exists && cluster_running || die "Cluster '${DEVKIT_PROFILE}' is not running. Start it with: ./devkit.sh up"
+  require_cluster_running
   printf '\n'
   access_table $hide
 }

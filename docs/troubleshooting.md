@@ -1,0 +1,24 @@
+# Troubleshooting
+
+Start with:
+
+```bash
+./devkit.sh doctor     # prerequisites, resources, ports, network (read-only)
+./devkit.sh status     # cluster, pods, volumes, ScaledObjects, port-forwards
+```
+
+| Symptom | What to do |
+|---|---|
+| Exit code `10` | A re-login or reboot is required (group membership, WSL 2, Hyper-V). Do it and run the same command again |
+| "Docker can use only N MB" | Give Docker Desktop/Colima/WSL 2 more memory, or accept the smaller size `up` offers |
+| A port is "already in use" | devkit picks the next free port; `devkit info` shows the real one. Or change `DEVKIT_PORT_*` |
+| URLs stopped answering | `devkit forward restart` (logs in `log/port-forward-<name>.log`) |
+| A service shows `NOT READY` | `devkit logs <service>`; `kubectl --context devkit -n devkit-data describe pod <service>-0` |
+| MongoDB restarts with "Linux kernel versions 6.19 and newer" | Use `mongo:7.0` (default) in `DEVKIT_IMAGE_MONGODB`, then `devkit reset mongodb` |
+| Changed a password/major version but nothing changed | Databases initialize once: `devkit reset <service>` |
+| "Recreate cluster to apply new resources?" | The cluster was created with other CPUs/memory/disk/driver. Answer `y` to recreate (data lost) or keep it |
+| `.ps1` "cannot be loaded because running scripts is disabled" | `Set-ExecutionPolicy -Scope Process Bypass` in that terminal |
+| `devkit.sh` fails with `$'\r': command not found` | The file got Windows line endings; `git checkout -- .` (the repo's `.gitattributes` keeps `.sh` as LF) |
+| Want a clean slate | `devkit destroy` (asks whether to uninstall everything devkit installed) |
+
+Logs and state live in `log/` and `.devkit/` (both git-ignored).

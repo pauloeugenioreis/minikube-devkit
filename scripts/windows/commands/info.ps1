@@ -6,7 +6,7 @@ function Invoke-Info {
     foreach ($arg in $Arguments) {
         switch -Regex ($arg) {
             '^(--no-secrets|-NoSecrets)$' { $noSecrets = $true }
-            '^(-h|--help|-Help)$' { Write-Host 'Usage: .\devkit.ps1 info [-NoSecrets]'; return 0 }
+            '^(-h|--help|-Help)$' { Write-Host 'Usage: .\devkit.ps1 info [-NoSecrets]'; return }
             default { Stop-Devkit "Unknown option for info: $arg" }
         }
     }
@@ -15,5 +15,5 @@ function Invoke-Info {
     }
     Write-Host ''
     Show-AccessTable -NoSecrets:$noSecrets
-    return 0
+    return
 }

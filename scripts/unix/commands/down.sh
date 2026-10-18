@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # devkit down: stops the port-forwards and the cluster (data is kept).
-# devkit destroy: deletes the cluster and all its data.
+# devkit destroy: deletes the cluster and all its data, then offers to
+# uninstall everything devkit installed.
 
 cmd_down() {
   [ $# -eq 0 ] || { echo "Usage: devkit down"; return 0; }
@@ -17,4 +18,8 @@ cmd_destroy() {
   forward_stop_all
   cluster_delete
   log_ok "Cluster deleted. config/devkit.env was kept."
+  printf '\n'
+  if ask_yes_no "Also uninstall everything minikube-devkit installed?" N; then
+    uninstall_run
+  fi
 }

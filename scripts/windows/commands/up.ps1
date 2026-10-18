@@ -32,7 +32,7 @@ function Invoke-Up {
     param([string[]] $Arguments = @())
     $usage = "Usage: .\devkit.ps1 up [options]`n`nRuns the setup wizard, installs missing prerequisites and starts the environment.`n`nOptions:`n$script:WizardFlagsHelp"
     $opts = Read-WizardArgs $Arguments $usage
-    if ($null -eq $opts) { return 0 }
+    if ($null -eq $opts) { return }
 
     Resume-State
     Invoke-Wizard $opts
@@ -45,6 +45,7 @@ function Invoke-Up {
     Initialize-Cluster
     Publish-Components
     Publish-Keda
+    Publish-Examples
 
     Write-Step 'Port-forwards'
     Start-AllForwards
@@ -58,5 +59,8 @@ function Invoke-Up {
     Write-Info 'Port-forwards run in background. Manage with: .\devkit.ps1 forward [start|stop|status]'
     Write-Info 'Show this again anytime:  .\devkit.ps1 info'
     Write-Info 'Stop everything:          .\devkit.ps1 down'
-    return 0
+    if (Test-True (Get-Cfg 'DEVKIT_INSTALL_KEDA')) {
+        Write-Info 'See KEDA autoscale:       .\devkit.ps1 examples produce rabbitmq 50  (or: .\devkit.ps1 test keda)'
+    }
+    return
 }

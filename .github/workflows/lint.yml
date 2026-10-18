@@ -1,0 +1,64 @@
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        run: |
+          shellcheck --version
+          # The entrypoint follows every sourced file.
+          shellcheck -x devkit.sh
+          # Driver modules are loaded on demand; variables are used by the runner.
+          shellcheck -s bash -e SC2034 scripts/unix/deps/drivers/*.sh
+          shellcheck -s bash -e SC1090,SC1091 tests/unit/unix.sh
+
+  bash-unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS runs the system bash 3.2, the oldest version devkit supports.
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bash version
+        run: bash --version | head -n 1
+      - name: Unit tests
+        run: bash tests/unit/unix.sh
+      - name: Doctor (read-only)
+        run: ./devkit.sh doctor || true
+
+  powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+          $results | Format-Table -AutoSize
+          if ($results) { exit 1 }
+      - name: ASCII only (Windows PowerShell 5.1 reads BOM-less files as ANSI)
+        shell: pwsh
+        run: |
+          $bad = Get-ChildItem -Recurse -Include *.ps1, *.psm1 | Select-String -Pattern '[^\x00-\x7F]'
+          $bad
+          if ($bad) { exit 1 }
+      - name: Unit tests (Windows PowerShell 5.1)
+        shell: powershell
+        run: .\tests\unit\windows.ps1
+      - name: Unit tests (PowerShell 7)
+        shell: pwsh
+        run: ./tests/unit/windows.ps1
+      - name: Doctor (read-only)
+        shell: pwsh
+        run: .\devkit.ps1 doctor; exit 0

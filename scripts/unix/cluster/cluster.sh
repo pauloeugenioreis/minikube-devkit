@@ -106,6 +106,13 @@ cluster_ensure() {
   done
 }
 
+# Fails with a hint unless the devkit cluster exists and is running.
+require_cluster_running() {
+  if ! cluster_exists || ! cluster_running; then
+    die "Cluster '${DEVKIT_PROFILE}' is not running. Start it with: ./devkit.sh up"
+  fi
+}
+
 cluster_stop() {
   if cluster_exists && cluster_running; then
     run minikube stop -p "$DEVKIT_PROFILE"

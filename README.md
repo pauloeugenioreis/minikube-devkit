@@ -5,9 +5,13 @@ A professional local environment for development, testing and DevOps automation 
 Redis, KEDA** and the **Kubernetes Dashboard** — ready-made scripts for **Windows, Linux
 and macOS**.
 
-> **Status:** early development. `up` works end to end with the `docker` driver; the
-> other drivers install and validate their prerequisites. KEDA examples and tests are
-> coming next (see [Roadmap](#roadmap)).
+> **Status:** `up` is tested end to end on Linux with the `docker` driver (Bash and
+> PowerShell entrypoints); other drivers and platforms install and validate their
+> prerequisites and are covered by unit tests in CI.
+
+Guides: [Linux](docs/linux.md) · [macOS](docs/macos.md) · [Windows](docs/windows.md) ·
+[Services](docs/services.md) · [KEDA examples](docs/keda.md) ·
+[Troubleshooting](docs/troubleshooting.md)
 
 ## Quick start
 
@@ -141,12 +145,19 @@ it stopped.
 
 | Command | Description |
 |---|---|
-| `up` | Setup wizard, prerequisites, cluster, components, port-forwards and access table |
+| `up` | Setup wizard, prerequisites, cluster, components, KEDA examples, port-forwards and access table |
 | `configure` | Setup wizard only |
+| `status` | Cluster, pods, volumes, KEDA ScaledObjects and port-forwards |
 | `info` | URLs and credentials of the installed components |
 | `forward start\|stop\|restart\|status` | Manage the background port-forwards |
+| `logs <name> [-f]` | Logs of a component (`postgresql`, `keda`, `redis-worker`, …) |
+| `shell <service>` | Open `psql`, `mysql`, `mongosh`, `redis-cli` (or a shell for RabbitMQ), already authenticated |
+| `reset <service>` | Recreate a data service with an empty volume |
+| `examples deploy\|remove\|produce` | Manage the [KEDA examples](docs/keda.md) |
+| `test smoke\|keda\|unit\|all` | Health checks, KEDA 0→N→0 autoscaling test, offline unit tests |
 | `down` | Stop port-forwards and the cluster (data is kept) |
-| `destroy` | Delete the cluster and all its data (asks for confirmation) |
+| `destroy` | Delete the cluster and all its data, then optionally uninstall everything devkit installed |
+| `uninstall` | Remove only what devkit installed (binaries, packages, system files, minikube cache when no other profile exists) |
 | `doctor` | Read-only diagnostics: prerequisites, resources, ports, network |
 | `install-prereqs` | Install and configure what the selected driver needs |
 
@@ -190,6 +201,9 @@ devkit.ps1            # entrypoint for Windows
 config/devkit.env     # single configuration file (shared)
 k8s/                  # manifest templates per component (shared)
 helm/                 # Helm values, e.g. KEDA (shared)
+examples/             # KEDA examples: worker image and ScaledObjects (shared)
+tests/unit/           # offline unit tests (unix.sh, windows.ps1)
+docs/                 # per-OS guides, services, KEDA, troubleshooting
 scripts/unix/         # Bash implementation (Linux + macOS)
 scripts/windows/      # PowerShell implementation (Windows)
   lib/                # logging, config, prompts, package managers, state
@@ -209,7 +223,21 @@ values are shared by both.
 - [x] Cluster, data services, KEDA and Kubernetes Dashboard
 - [x] Other drivers: kvm2, hyperv, podman, virtualbox, qemu, vfkit, hyperkit
 - [x] `latest` versions with update prompts
-- [ ] KEDA examples, operational commands, tests, CI and docs
+- [x] KEDA examples, operational commands, tests, CI and docs
+- [x] `destroy` / `uninstall` remove what devkit installed
+
+## Development
+
+```bash
+./devkit.sh test unit                      # Bash unit tests
+pwsh -File tests/unit/windows.ps1          # PowerShell unit tests
+shellcheck -x devkit.sh
+pwsh -c "Invoke-ScriptAnalyzer -Path . -Recurse -Settings ./PSScriptAnalyzerSettings.psd1"
+```
+
+CI (GitHub Actions) runs the linters, the unit tests on Linux, macOS (bash 3.2) and
+Windows (PowerShell 5.1 and 7), and an end-to-end `up` + `test smoke` + `test keda` on
+Linux.
 
 ## License
 
