@@ -1,0 +1,9 @@
+# Runtime state: resume markers, port-forward PIDs, logs
+.devkit/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
