@@ -5,16 +5,15 @@ A professional local environment for development, testing and DevOps automation 
 Redis, KEDA** and the **Kubernetes Dashboard** — ready-made scripts for **Windows, Linux
 and macOS**.
 
-> **Status:** early development. The setup wizard and prerequisite installation work
-> today with the `docker` driver; the cluster and services are coming next (see
-> [Roadmap](#roadmap)).
+> **Status:** early development. `up` works end to end with the `docker` driver; other
+> drivers, KEDA examples and tests are coming next (see [Roadmap](#roadmap)).
 
 ## Quick start
 
 **Linux / macOS**
 
 ```bash
-./devkit.sh up                # setup wizard + prerequisites (+ cluster, soon)
+./devkit.sh up                # wizard + prerequisites + cluster + services
 ./devkit.sh doctor            # read-only diagnostics
 ```
 
@@ -58,6 +57,35 @@ Proceed? [Y/n]:
 - Answers are saved to `config/devkit.env`; the next run offers
   `Use saved configuration? [Y/n]` (`--reconfigure` asks everything again).
 
+## What you get
+
+At the end of `up`, devkit prints how to reach everything it installed (only the
+components you selected):
+
+```
++----------------------+-----------------------------------------------------------+-----------------------------------+
+| Resource             | URL / Endpoint                                            | Credentials                       |
++----------------------+-----------------------------------------------------------+-----------------------------------+
+| Kubernetes Dashboard | http://localhost:15671                                    | (no login)                        |
+| RabbitMQ Management  | http://localhost:15672                                    | guest / guest                     |
+| RabbitMQ AMQP        | amqp://guest:guest@localhost:5672/                        | guest / guest                     |
+| MongoDB              | mongodb://devkit:devkit@localhost:27017/devkit?authSource=admin | devkit / devkit             |
+| PostgreSQL           | postgresql://devkit:devkit@localhost:5432/devkit          | devkit / devkit                   |
+| MySQL                | mysql://devkit:devkit@localhost:3306/devkit               | devkit / devkit (root: devkit)    |
+| Redis                | redis://:devkit@localhost:6379                            | password: devkit                  |
+| KEDA                 | namespace: keda (operator running)                        | -                                 |
++----------------------+-----------------------------------------------------------+-----------------------------------+
+```
+
+- The URLs work right away: port-forwards run in background and restart themselves if
+  a pod restarts (`forward start|stop|restart|status`).
+- If a local port is busy, the next free one is used and shown in the table.
+- `info` prints the table again (`--no-secrets` / `-NoSecrets` masks passwords).
+- Data services run in the `devkit-data` namespace as StatefulSets with persistent
+  volumes, so data survives `down`/`up`. `destroy` deletes the cluster and its data.
+- Images, versions, ports and credentials are all set in `config/devkit.env`; the
+  manifests in [`k8s/`](k8s/) are templates rendered from it.
+
 ## What `install-prereqs` does
 
 Every dependency goes through **check → install → configure → verify**. Nothing is
@@ -78,8 +106,12 @@ it stopped.
 
 | Command | Description |
 |---|---|
-| `up` | Setup wizard, prerequisites and (soon) cluster + components |
+| `up` | Setup wizard, prerequisites, cluster, components, port-forwards and access table |
 | `configure` | Setup wizard only |
+| `info` | URLs and credentials of the installed components |
+| `forward start\|stop\|restart\|status` | Manage the background port-forwards |
+| `down` | Stop port-forwards and the cluster (data is kept) |
+| `destroy` | Delete the cluster and all its data (asks for confirmation) |
 | `doctor` | Read-only diagnostics: prerequisites, resources, ports, network |
 | `install-prereqs` | Install and configure what the selected driver needs |
 
@@ -121,22 +153,25 @@ DEVKIT_CPUS=6 DEVKIT_MEMORY_MB=12288 ./devkit.sh doctor
 devkit.sh             # entrypoint for Linux and macOS
 devkit.ps1            # entrypoint for Windows
 config/devkit.env     # single configuration file (shared)
+k8s/                  # manifest templates per component (shared)
+helm/                 # Helm values, e.g. KEDA (shared)
 scripts/unix/         # Bash implementation (Linux + macOS)
 scripts/windows/      # PowerShell implementation (Windows)
   lib/                # logging, config, prompts, package managers, state
   deps/               # dependency runner, core CLIs, drivers/
-  commands/           # up, configure, doctor, install-prereqs
+  cluster/            # minikube lifecycle, components, port-forwards, access table
+  commands/           # one file per CLI command
 ```
 
-Both implementations share the same layout and behaviour; Kubernetes manifests and
-Helm values (coming next) are shared by both.
+Both implementations share the same layout and behaviour; Kubernetes manifests and Helm
+values are shared by both.
 
 ## Roadmap
 
 - [x] Repository base, configuration and shared libraries (Bash + PowerShell)
 - [x] Core CLIs and the `docker` driver on Linux, macOS and Windows
 - [x] Interactive setup wizard (`devkit up`): driver, resources and component selection
-- [ ] Cluster, data services, KEDA and Kubernetes Dashboard
+- [x] Cluster, data services, KEDA and Kubernetes Dashboard
 - [ ] Other drivers: kvm2, hyperv, podman, virtualbox, qemu, vfkit
 - [ ] KEDA examples, operational commands, tests, CI and docs
 

@@ -24,6 +24,10 @@ Usage: .\devkit.ps1 <command> [options]
 Commands:
   up                 Run the setup wizard, install prerequisites and start the environment
   configure          Run the setup wizard only (saves answers to config\devkit.env)
+  info               Show URLs and credentials (-NoSecrets hides passwords)
+  forward ACTION     Manage port-forwards: start | stop | restart | status
+  down               Stop port-forwards and the cluster (data is kept)
+  destroy            Delete the cluster and all its data
   doctor             Check prerequisites, resources, ports and network (read-only)
   install-prereqs    Install and configure everything the selected driver needs
   version            Print the devkit version
@@ -69,7 +73,7 @@ try {
     switch ($cli.Command) {
         { $_ -in 'help', '-h', '--help', '-Help' } { Show-Usage; exit 0 }
         { $_ -in 'version', '--version' } { Write-Host "minikube-devkit $DevkitVersion"; exit 0 }
-        { $_ -in 'up', 'configure', 'doctor', 'install-prereqs' } { break }
+        { $_ -in 'up', 'configure', 'info', 'forward', 'down', 'destroy', 'doctor', 'install-prereqs' } { break }
         default { Write-Err "Unknown command: $($cli.Command)"; Show-Usage; exit 1 }
     }
 
@@ -77,7 +81,10 @@ try {
     . (Join-Path $DevkitRoot 'scripts/windows/deps/core.ps1')
     . (Join-Path $DevkitRoot 'scripts/windows/deps/drivers/drivers.ps1')
     foreach ($driverModule in Get-DriverModuleFiles) { . $driverModule }
-    foreach ($commandName in @('doctor', 'install-prereqs', 'configure', 'up')) {
+    foreach ($clusterModule in @('Cluster', 'Components', 'Forward', 'Access')) {
+        . (Join-Path $DevkitRoot "scripts/windows/cluster/$clusterModule.ps1")
+    }
+    foreach ($commandName in @('doctor', 'install-prereqs', 'configure', 'up', 'info', 'forward', 'down')) {
         . (Join-Path $DevkitRoot "scripts/windows/commands/$commandName.ps1")
     }
     Initialize-CorePath
@@ -85,6 +92,10 @@ try {
     switch ($cli.Command) {
         'up' { $code = Invoke-Up $cli.Rest }
         'configure' { $code = Invoke-Configure $cli.Rest }
+        'info' { $code = Invoke-Info $cli.Rest }
+        'forward' { $code = Invoke-Forward $cli.Rest }
+        'down' { $code = Invoke-Down $cli.Rest }
+        'destroy' { $code = Invoke-Destroy $cli.Rest }
         'doctor' { $code = Invoke-Doctor $cli.Rest }
         'install-prereqs' { $code = Invoke-InstallPrereqs $cli.Rest }
     }

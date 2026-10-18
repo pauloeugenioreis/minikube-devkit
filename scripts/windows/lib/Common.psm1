@@ -32,6 +32,7 @@ function Initialize-Devkit {
 
 function Get-DevkitRoot { $script:DevkitRoot }
 function Get-DevkitStateDir { Join-Path $script:DevkitRoot '.devkit' }
+function Get-DevkitLogDir { Join-Path $script:DevkitRoot 'log' }
 function Get-ExitPendingCode { $script:ExitPending }
 
 function Set-DevkitVerbose { param([bool] $Value) $script:Verbose = $Value }
@@ -68,6 +69,8 @@ function Get-HostOsName {
 }
 
 # ---------------------------------------------------------------- logging ---
+
+function Get-SymbolOk { $script:SymOk }
 
 function Write-Step  { param([string] $Message) Write-Host ''; Write-Host "==> $Message" -ForegroundColor Cyan }
 function Write-Info  { param([string] $Message) Write-Host "    $Message" }
@@ -132,6 +135,11 @@ function Get-Cfg {
     if ($null -ne $fromEnv -and $fromEnv -ne '') { return $fromEnv }
     if ($script:Config.ContainsKey($Key)) { return $script:Config[$Key] }
     return $Default
+}
+
+function Test-CfgDefined {
+    param([Parameter(Mandatory)] [string] $Key)
+    ($null -ne [Environment]::GetEnvironmentVariable($Key)) -or $script:Config.ContainsKey($Key)
 }
 
 function Set-Cfg {

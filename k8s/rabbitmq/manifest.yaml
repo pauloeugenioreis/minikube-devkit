@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-config
+  namespace: ${DEVKIT_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/part-of: minikube-devkit
+data:
+  # By default the "guest" user may only connect from localhost; allow it from
+  # other pods too (e.g. KEDA and example workers). Development only.
+  20-devkit.conf: |
+    loopback_users = none
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: ${DEVKIT_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/part-of: minikube-devkit
+spec:
+  selector:
+    app.kubernetes.io/name: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: amqp
+    - name: management
+      port: 15672
+      targetPort: management
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+  namespace: ${DEVKIT_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/part-of: minikube-devkit
+spec:
+  serviceName: rabbitmq
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rabbitmq
+        app.kubernetes.io/part-of: minikube-devkit
+    spec:
+      containers:
+        - name: rabbitmq
+          image: ${DEVKIT_IMAGE_RABBITMQ}
+          envFrom:
+            - secretRef:
+                name: rabbitmq-credentials
+          ports:
+            - name: amqp
+              containerPort: 5672
+            - name: management
+              containerPort: 15672
+          startupProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+            periodSeconds: 10
+            timeoutSeconds: 20
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+            periodSeconds: 20
+            timeoutSeconds: 20
+          livenessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            periodSeconds: 30
+            timeoutSeconds: 20
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
+            - name: config
+              mountPath: /etc/rabbitmq/conf.d/20-devkit.conf
+              subPath: 20-devkit.conf
+      volumes:
+        - name: config
+          configMap:
+            name: rabbitmq-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi

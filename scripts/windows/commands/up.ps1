@@ -1,4 +1,4 @@
-# devkit up: wizard -> prerequisites -> (cluster and components).
+# devkit up: wizard -> prerequisites -> cluster -> components -> port-forwards.
 
 # With the docker driver the node cannot be larger than what Docker Desktop's
 # VM (WSL 2 or Hyper-V) can use. When the request does not fit, offer to
@@ -42,8 +42,21 @@ function Invoke-Up {
     Install-Dependencies ($script:CoreDeps + "driver_$driver")
     Resize-ToDockerLimits
 
+    Initialize-Cluster
+    Publish-Components
+    Publish-Keda
+
+    Write-Step 'Port-forwards'
+    Start-AllForwards
+    Write-Ok 'Port-forwards running in background'
+
     Write-Host ''
-    Write-Ok "Prerequisites ready for: $driver, $(Get-Cfg 'DEVKIT_CPUS') CPUs, $(Get-Cfg 'DEVKIT_MEMORY_MB') MB RAM, $(Get-Cfg 'DEVKIT_DISK_GB') GB disk."
-    Write-Warn 'Cluster and component provisioning is not implemented yet (next phase).'
+    Write-Host "$(Get-SymbolOk) minikube-devkit is ready!" -ForegroundColor Green
+    Write-Host ''
+    Show-AccessTable
+    Write-Host ''
+    Write-Info 'Port-forwards run in background. Manage with: .\devkit.ps1 forward [start|stop|status]'
+    Write-Info 'Show this again anytime:  .\devkit.ps1 info'
+    Write-Info 'Stop everything:          .\devkit.ps1 down'
     return 0
 }

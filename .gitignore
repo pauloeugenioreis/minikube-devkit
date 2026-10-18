@@ -1,5 +1,9 @@
-# Runtime state: resume markers, port-forward PIDs, logs
+# Runtime state: resume markers, port-forward PIDs and ports
 .devkit/
+
+# Logs: the folder is versioned (log/.gitkeep), its contents are not
+log/*
+!log/.gitkeep
 
 # Editors / OS
 .vscode/

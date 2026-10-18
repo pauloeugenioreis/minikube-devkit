@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# devkit up: wizard -> prerequisites -> (cluster and components).
+# devkit up: wizard -> prerequisites -> cluster -> components -> port-forwards.
 
 # With the docker driver the node cannot be larger than what the Docker daemon
 # can use (on macOS that is the Docker Desktop / Colima VM). When the request
@@ -51,7 +51,18 @@ ${WIZARD_FLAGS_HELP}" "$@" || rc=$?
   dep_ensure $CORE_DEPS "driver_${DEVKIT_DRIVER}"
   _up_fit_docker_resources
 
+  cluster_ensure
+  components_deploy
+  keda_deploy
+
+  log_step "Port-forwards"
+  forward_start_all
+  log_ok "Port-forwards running in background"
+
+  printf '\n%s\n\n' "${_C_BOLD}${_C_GREEN}✔ minikube-devkit is ready!${_C_RESET}"
+  access_table
   printf '\n'
-  log_ok "Prerequisites ready for: ${DEVKIT_DRIVER}, ${DEVKIT_CPUS} CPUs, ${DEVKIT_MEMORY_MB} MB RAM, ${DEVKIT_DISK_GB} GB disk."
-  log_warn "Cluster and component provisioning is not implemented yet (next phase)."
+  log_info "Port-forwards run in background. Manage with: ./devkit.sh forward [start|stop|status]"
+  log_info "Show this again anytime:  ./devkit.sh info"
+  log_info "Stop everything:          ./devkit.sh down"
 }

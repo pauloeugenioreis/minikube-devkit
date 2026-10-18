@@ -5,6 +5,7 @@
 
 : "${DEVKIT_ROOT:?DEVKIT_ROOT must be set by the entrypoint}"
 DEVKIT_STATE_DIR="${DEVKIT_ROOT}/.devkit"
+DEVKIT_LOG_DIR="${DEVKIT_ROOT}/log"
 
 # Exit code used when the user must log out/in or reboot before continuing.
 DEVKIT_EXIT_PENDING=10

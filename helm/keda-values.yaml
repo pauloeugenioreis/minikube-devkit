@@ -1,0 +1,21 @@
+# Values for the kedacore/keda chart, sized for a local minikube node.
+# Chart version is pinned in config/devkit.env (DEVKIT_KEDA_CHART_VERSION).
+resources:
+  operator:
+    requests:
+      cpu: 50m
+      memory: 100Mi
+    limits:
+      memory: 500Mi
+  metricServer:
+    requests:
+      cpu: 50m
+      memory: 100Mi
+    limits:
+      memory: 500Mi
+  webhooks:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
