@@ -17,6 +17,7 @@ function Get-DoctorPorts {
 function Invoke-Doctor {
     param([string[]] $Arguments = @())
 
+    $Arguments = Read-DriverOption $Arguments
     for ($i = 0; $i -lt $Arguments.Count; $i++) {
         switch ($Arguments[$i]) {
             { $_ -in '-h', '--help', '-Help' } { Write-Host 'Usage: .\devkit.ps1 doctor [-Driver NAME]'; return 0 }
@@ -27,6 +28,7 @@ function Invoke-Doctor {
     $errors = 0
     $warnings = 0
     $driver = Get-Cfg 'DEVKIT_DRIVER' 'docker'
+    Assert-DriverAvailable $driver
 
     $cpus = Get-HostCpus
     $memoryMb = Get-HostMemoryMb

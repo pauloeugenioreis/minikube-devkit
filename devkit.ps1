@@ -2,7 +2,7 @@
 # Linux and macOS users: run ./devkit.sh instead.
 #
 # Arguments are parsed manually (no param block) so the CLI matches devkit.sh:
-#   .\devkit.ps1 <command> [-Yes|--yes|-y] [-Driver|--driver NAME] [-VerboseLog|--verbose|-v]
+#   .\devkit.ps1 <command> [command options] [-Yes|--yes|-y] [-VerboseLog|--verbose|-v]
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
@@ -11,7 +11,7 @@ $DevkitVersion = '0.1.0'
 $DevkitRoot = $PSScriptRoot
 
 foreach ($module in @('Common', 'Prompt', 'Pkg', 'State')) {
-    Import-Module (Join-Path $DevkitRoot "scripts/lib/$module.psm1") -Force -DisableNameChecking
+    Import-Module (Join-Path $DevkitRoot "scripts/windows/lib/$module.psm1") -Force -DisableNameChecking
 }
 Initialize-Devkit -Root $DevkitRoot
 
@@ -22,6 +22,8 @@ minikube-devkit $DevkitVersion
 Usage: .\devkit.ps1 <command> [options]
 
 Commands:
+  up                 Run the setup wizard, install prerequisites and start the environment
+  configure          Run the setup wizard only (saves answers to config\devkit.env)
   doctor             Check prerequisites, resources, ports and network (read-only)
   install-prereqs    Install and configure everything the selected driver needs
   version            Print the devkit version
@@ -30,7 +32,8 @@ Commands:
 Global options:
   -Yes, -y, --yes        Non-interactive: accept the default answer for every prompt
   -VerboseLog, --verbose Print the commands being executed
-  -Driver NAME           Minikube driver to use (default: $(Get-Cfg 'DEVKIT_DRIVER' 'docker'))
+
+Run '.\devkit.ps1 <command> -Help' for command options (e.g. -Driver, -Cpus).
 
 Environment variables named like the keys in config\devkit.env override them.
 "@
@@ -45,11 +48,6 @@ function Read-CliArgs {
         $arg = [string] $CliArgs[$i]
         if ($arg -match '^(-y|--yes|-Yes)$') { Set-DevkitNonInteractive $true }
         elseif ($arg -match '^(-v|--verbose|-VerboseLog)$') { Set-DevkitVerbose $true }
-        elseif ($arg -match '^(--driver|-Driver)$') {
-            if ($i + 1 -ge $CliArgs.Count) { Stop-Devkit "$arg needs a value" }
-            $i++
-            $env:DEVKIT_DRIVER = [string] $CliArgs[$i]
-        }
         elseif (-not $command) { $command = $arg }
         else { $rest += $arg }
     }
@@ -71,19 +69,22 @@ try {
     switch ($cli.Command) {
         { $_ -in 'help', '-h', '--help', '-Help' } { Show-Usage; exit 0 }
         { $_ -in 'version', '--version' } { Write-Host "minikube-devkit $DevkitVersion"; exit 0 }
-        { $_ -in 'doctor', 'install-prereqs' } { break }
+        { $_ -in 'up', 'configure', 'doctor', 'install-prereqs' } { break }
         default { Write-Err "Unknown command: $($cli.Command)"; Show-Usage; exit 1 }
     }
 
-    . (Join-Path $DevkitRoot 'scripts/deps/deps.ps1')
-    . (Join-Path $DevkitRoot 'scripts/deps/core.ps1')
-    . (Join-Path $DevkitRoot 'scripts/deps/drivers/drivers.ps1')
-    . (Get-DriverModule (Get-Cfg 'DEVKIT_DRIVER' 'docker'))
-    . (Join-Path $DevkitRoot 'scripts/commands/doctor.ps1')
-    . (Join-Path $DevkitRoot 'scripts/commands/install-prereqs.ps1')
+    . (Join-Path $DevkitRoot 'scripts/windows/deps/deps.ps1')
+    . (Join-Path $DevkitRoot 'scripts/windows/deps/core.ps1')
+    . (Join-Path $DevkitRoot 'scripts/windows/deps/drivers/drivers.ps1')
+    foreach ($driverModule in Get-DriverModuleFiles) { . $driverModule }
+    foreach ($commandName in @('doctor', 'install-prereqs', 'configure', 'up')) {
+        . (Join-Path $DevkitRoot "scripts/windows/commands/$commandName.ps1")
+    }
     Initialize-CorePath
 
     switch ($cli.Command) {
+        'up' { $code = Invoke-Up $cli.Rest }
+        'configure' { $code = Invoke-Configure $cli.Rest }
         'doctor' { $code = Invoke-Doctor $cli.Rest }
         'install-prereqs' { $code = Invoke-InstallPrereqs $cli.Rest }
     }

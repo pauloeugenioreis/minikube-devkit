@@ -27,7 +27,7 @@ driver_is_supported() {
 
 # Sources the driver module; fails for drivers without an implementation yet.
 driver_load() {
-  local driver="$1" file="${DEVKIT_ROOT}/scripts/deps/drivers/$1.sh"
+  local driver="$1" file="${DEVKIT_ROOT}/scripts/unix/deps/drivers/$1.sh"
   driver_is_supported "$driver" \
     || die "Driver '${driver}' is not supported on ${DEVKIT_OS}/${DEVKIT_ARCH}. Supported: $(drivers_supported | cut -d'|' -f1 | tr '\n' ' ')"
   [ -f "$file" ] || die "Driver '${driver}' is not implemented yet. Use --driver docker."

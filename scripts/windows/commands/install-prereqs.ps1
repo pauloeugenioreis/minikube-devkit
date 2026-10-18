@@ -4,12 +4,13 @@
 function Invoke-InstallPrereqs {
     param([string[]] $Arguments = @())
 
-    foreach ($arg in $Arguments) {
+    foreach ($arg in (Read-DriverOption $Arguments)) {
         if ($arg -in '-h', '--help', '-Help') { Write-Host 'Usage: .\devkit.ps1 install-prereqs [-Driver NAME] [-Yes]'; return 0 }
         Stop-Devkit "Unknown option for install-prereqs: $arg"
     }
 
     $driver = Get-Cfg 'DEVKIT_DRIVER' 'docker'
+    Assert-DriverAvailable $driver
     Resume-State
 
     Install-Dependencies ($script:CoreDeps + "driver_$driver")

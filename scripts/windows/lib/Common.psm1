@@ -145,12 +145,16 @@ function Save-Cfg {
     param([Parameter(Mandatory)] [string] $Key, [string] $Value)
     $file = Get-ConfigFile
     $found = $false
-    $lines = @(Get-Content -LiteralPath $file | ForEach-Object {
-        if ($_.StartsWith("$Key=")) { $found = $true; "$Key=$Value" } else { $_ }
-    })
+    $lines = @()
+    foreach ($line in Get-Content -LiteralPath $file) {
+        if ($line.StartsWith("$Key=")) { $found = $true; $lines += "$Key=$Value" } else { $lines += $line }
+    }
     if (-not $found) { $lines += "$Key=$Value" }
     # LF and no BOM, matching .gitattributes and the Bash implementation.
     [IO.File]::WriteAllText($file, (($lines -join "`n") + "`n"))
+    # The saved value is now authoritative for this run, even over an
+    # environment variable with the same name.
+    [Environment]::SetEnvironmentVariable($Key, $null)
     Set-Cfg $Key $Value
 }
 
