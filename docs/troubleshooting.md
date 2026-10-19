@@ -11,6 +11,7 @@ Start with:
 |---|---|
 | Exit code `10` | A re-login or reboot is required (group membership, WSL 2, Hyper-V). Do it and run the same command again |
 | "Docker can use only N MB" | Give Docker Desktop/Colima/WSL 2 more memory, or accept the smaller size `up` offers |
+| apt: "Conflicting values set for option Signed-By" | Repaired automatically: devkit keeps one declaration of the repository and renames the others to `*.disabled` (or comments them out / sets `Enabled: no`). To undo, rename the file back |
 | A port is "already in use" | devkit picks the next free port; `devkit info` shows the real one. Or change `DEVKIT_PORT_*` |
 | URLs stopped answering | `devkit forward restart` (logs in `log/port-forward-<name>.log`) |
 | A service shows `NOT READY` | `devkit logs <service>`; `kubectl --context devkit -n devkit-data describe pod <service>-0` |

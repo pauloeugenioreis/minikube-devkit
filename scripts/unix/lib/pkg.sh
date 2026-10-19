@@ -26,13 +26,142 @@ pkg_detect() {
 pkg_refresh() {
   [ "$_PKG_REFRESHED" = 1 ] && return 0
   case "$DEVKIT_PKG" in
-    apt) as_root apt-get update -qq ;;
+    apt) _apt_update ;;
     brew) run brew update --quiet ;;
   esac
   _PKG_REFRESHED=1
 }
 
 pkg_refresh_reset() { _PKG_REFRESHED=0; }
+
+# ------------------------------------------------------------ apt sources ---
+
+_APT_DIR="${_APT_DIR:-/etc/apt}"
+_APT_SIGNED_BY_ERROR='Conflicting values set for option Signed-By regarding source'
+
+# Runs "apt-get update", repairing repositories declared more than once with
+# different keyrings (an error that makes apt refuse to read any source).
+_apt_update() {
+  local output url attempt
+  for attempt in 1 2 3 4 5; do
+    if output="$(as_root apt-get update -qq 2>&1)"; then
+      [ -z "$output" ] || printf '%s\n' "$output"
+      return 0
+    fi
+    url="$(printf '%s\n' "$output" | sed -n "s|.*${_APT_SIGNED_BY_ERROR} \([^ ]*\) .*|\1|p" | head -n 1)"
+    if [ -z "$url" ]; then
+      printf '%s\n' "$output" >&2
+      die "apt-get update failed. Fix the apt sources reported above and retry."
+    fi
+    log_warn "The apt repository ${url} is declared more than once with different keyrings; keeping a single entry."
+    apt_fix_signed_by_conflict "$url"
+  done
+  printf '%s\n' "$output" >&2
+  die "apt-get update still fails after repairing the apt sources."
+}
+
+# Lists the apt source files (one-line .list and deb822 .sources) with an
+# active entry for a repository URL (deb822 stanzas with "Enabled: no" are not).
+apt_sources_with() {
+  local url="${1%/}" file
+  for file in "${_APT_DIR}/sources.list" "${_APT_DIR}"/sources.list.d/*.list "${_APT_DIR}"/sources.list.d/*.sources; do
+    [ -f "$file" ] || continue
+    awk -v u="$url" '
+      function check() { if (m && !off) found = 1; m = 0; off = 0 }
+      /^[[:space:]]*$/ { check(); next }
+      /^[[:space:]]*#/ { next }
+      index($0, u) { m = 1 }
+      tolower($1) == "enabled:" && tolower($2) == "no" { off = 1 }
+      FILENAME !~ /\.sources$/ { check() }
+      END { check(); exit !found }' "$file" \
+      && printf '%s\n' "$file"
+  done
+  return 0
+}
+
+# Prints the keyring file an apt source FILE uses for URL (empty when the
+# entry has no Signed-By path, e.g. an inline key).
+_apt_source_keyring() {
+  local file="$1" url="${2%/}"
+  case "$file" in
+    *.sources)
+      awk -v u="$url" '
+        /^[[:space:]]*$/ { if (m && k != "") { print k; exit } m = 0; k = ""; next }
+        /^[[:space:]]*#/ { next }
+        tolower($1) == "uris:" && index($0, u) { m = 1 }
+        tolower($1) == "signed-by:" { k = $2 }
+        END { if (m && k != "") print k }' "$file"
+      ;;
+    *)
+      awk -v u="$url" '!/^[[:space:]]*#/ && index($0, u) && match($0, /signed-by=[^] ]+/) {
+        print substr($0, RSTART + 10, RLENGTH - 10); exit }' "$file"
+      ;;
+  esac
+}
+
+# apt_disable_source FILE URL: stops apt from reading the entries of FILE for
+# URL. A source file holding only those entries is renamed to *.disabled (apt
+# ignores it silently, and it can be renamed back); otherwise the matching
+# lines are commented out (.list) or their stanzas get "Enabled: no" (.sources).
+apt_disable_source() {
+  local file="$1" url="${2%/}" tmp
+  case "$file" in
+    */sources.list) ;;
+    *.sources)
+      if ! awk -v u="$url" 'tolower($1) == "uris:" && !index($0, u) { other = 1 } END { exit !other }' "$file"; then
+        as_root mv "$file" "${file}.disabled"
+        log_info "Renamed ${file} to ${file}.disabled"
+        return 0
+      fi
+      ;;
+    *)
+      if ! awk -v u="$url" '!/^[[:space:]]*(#|$)/ && !index($0, u) { other = 1 } END { exit !other }' "$file"; then
+        as_root mv "$file" "${file}.disabled"
+        log_info "Renamed ${file} to ${file}.disabled"
+        return 0
+      fi
+      ;;
+  esac
+
+  tmp="$(mktemp)"
+  case "$file" in
+    *.sources)
+      awk -v u="$url" '
+        function flush() { if (n) { for (i = 1; i <= n; i++) print s[i]; if (m) print "Enabled: no"; n = 0; m = 0 } }
+        /^[[:space:]]*$/ { flush(); print; next }
+        tolower($1) == "uris:" && index($0, u) { m = 1 }
+        tolower($1) == "enabled:" { next }
+        { s[++n] = $0 }
+        END { flush() }' "$file" >"$tmp"
+      ;;
+    *)
+      awk -v u="$url" '!/^[[:space:]]*#/ && index($0, u) { print "# disabled by devkit: " $0; next } { print }' "$file" >"$tmp"
+      ;;
+  esac
+  as_root install -m 0644 "$tmp" "$file"
+  rm -f "$tmp"
+  log_info "Disabled the entries for ${url} in ${file}"
+}
+
+# Keeps one declaration of a repository URL (the first whose keyring exists)
+# and disables the others, resolving apt's Signed-By conflict.
+apt_fix_signed_by_conflict() {
+  local url="$1" file keyring keep='' files
+  files="$(apt_sources_with "$url")"
+  [ -n "$files" ] || die "apt reports a conflict for ${url}, but no source file declares it. Check ${_APT_DIR}."
+  while IFS= read -r file; do
+    keyring="$(_apt_source_keyring "$file" "$url")"
+    if [ -z "$keyring" ] || [ -f "$keyring" ]; then keep="$file"; break; fi
+  done <<EOF
+$files
+EOF
+  [ -n "$keep" ] || keep="$(printf '%s\n' "$files" | head -n 1)"
+  while IFS= read -r file; do
+    [ "$file" = "$keep" ] || apt_disable_source "$file" "$url"
+  done <<EOF
+$files
+EOF
+}
 
 # Succeeds when the package is already installed by the current manager.
 pkg_is_installed() {

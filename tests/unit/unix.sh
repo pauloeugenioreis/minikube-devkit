@@ -60,6 +60,37 @@ assert_ok   ver_ge v1.30.0-rc.1 v1.30.0
 assert_fail ver_ge 2.0 2.0.1
 assert_eq "$(pkg_pretty_version '5:29.9.1-1~ubuntu.26.04~resolute')" 29.9.1 'pkg_pretty_version'
 
+# ------------------------------------------------------------ apt sources ---
+# The same repository declared twice with different keyrings (apt refuses to
+# read any source): devkit keeps the entry whose keyring exists. Runs in a
+# subshell (as_root is stubbed) that reports its counters back through fd 3.
+counts="$( (
+  # shellcheck disable=SC2329  # called by the apt helpers
+  as_root() { "$@"; }
+  _APT_DIR="${TMP}/apt"
+  repo=https://download.docker.com/linux/ubuntu
+  mkdir -p "${_APT_DIR}/sources.list.d" "${_APT_DIR}/keyrings"
+  touch "${_APT_DIR}/keyrings/docker.asc"
+  printf 'deb [arch=amd64 signed-by=%s/keyrings/docker.asc] %s resolute stable\n' "$_APT_DIR" "$repo" \
+    > "${_APT_DIR}/sources.list.d/docker.list"
+  printf 'Types: deb\nURIs: %s/\nSuites: resolute\nComponents: stable\nSigned-By: %s/keyrings/docker.gpg\n' "$repo" "$_APT_DIR" \
+    > "${_APT_DIR}/sources.list.d/docker.sources"
+  printf 'Types: deb\nURIs: https://example.com/apt\nSuites: x\n\nTypes: deb\nURIs: %s\nSuites: noble\nEnabled: yes\nSigned-By: /none.gpg\n' "$repo" \
+    > "${_APT_DIR}/sources.list.d/mixed.sources"
+  printf 'deb http://archive.ubuntu.com/ubuntu resolute main\ndeb [signed-by=/none.gpg] %s noble stable\n' "$repo" \
+    > "${_APT_DIR}/sources.list"
+
+  assert_eq "$(apt_sources_with "$repo/" | wc -l | tr -d ' ')" 4 'apt_sources_with: finds every declaration'
+  assert_eq "$(_apt_source_keyring "${_APT_DIR}/sources.list.d/docker.sources" "$repo")" "${_APT_DIR}/keyrings/docker.gpg" '_apt_source_keyring: deb822'
+  apt_fix_signed_by_conflict "$repo/" >/dev/null
+  assert_eq "$(apt_sources_with "$repo")" "${_APT_DIR}/sources.list.d/docker.list" 'apt_fix_signed_by_conflict: keeps one entry'
+  assert_ok test -f "${_APT_DIR}/sources.list.d/docker.sources.disabled"
+  assert_eq "$(grep -c '^Enabled: no$' "${_APT_DIR}/sources.list.d/mixed.sources")" 1 'apt_disable_source: disables only the matching stanza'
+  assert_eq "$(grep -c '^deb http://archive' "${_APT_DIR}/sources.list")" 1 'apt_disable_source: keeps other lines'
+  printf '%s %s' "$PASSED" "$FAILED" >&3
+) 3>&1 >&2 )"
+PASSED="${counts% *}" FAILED="${counts#* }"
+
 # ----------------------------------------------------------------- config ---
 cfg="${TMP}/cfg.env"
 printf '# comment\nDEVKIT_A=plain\r\nDEVKIT_B="quoted value"\nDEVKIT_C=x=y#z\nnot valid\nDEVKIT_ENVWINS=file\n' > "$cfg"

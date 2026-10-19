@@ -92,6 +92,17 @@ _docker_install_apt() {
     return
   fi
 
+  # Other declarations of Docker's repository (e.g. a manual install with a
+  # docker.gpg keyring) would conflict with devkit's entry below.
+  local repo="https://download.docker.com/linux/${distro}" file
+  while IFS= read -r file; do
+    [ -z "$file" ] || [ "$file" = "${_APT_DIR}/sources.list.d/docker.list" ] && continue
+    log_warn "Docker's repository is already declared in ${file}; disabling it in favor of devkit's entry."
+    apt_disable_source "$file" "$repo"
+  done <<EOF
+$(apt_sources_with "$repo")
+EOF
+
   pkg_install ca-certificates curl
   tmp="$(mktemp)"
   download "https://download.docker.com/linux/${distro}/gpg" "$tmp"
