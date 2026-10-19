@@ -22,4 +22,12 @@ Start with:
 | `devkit.sh` fails with `$'\r': command not found` | The file got Windows line endings; `git checkout -- .` (the repo's `.gitattributes` keeps `.sh` as LF) |
 | Want a clean slate | `devkit destroy` (asks whether to uninstall everything devkit installed) |
 
+## Run logs
+
+Every run of `devkit.sh` / `devkit.ps1` (except `shell`, `help` and `version`) saves
+everything it printed, including prompts and answers, to
+`log/devkit-<command>-<timestamp>.log`; the path is shown when a command fails.
+The 50 newest run logs are kept. Attach the log when reporting a problem, but check it
+first: the access table printed by `up`/`info` contains passwords.
+
 Logs and state live in `log/` and `.devkit/` (both git-ignored).

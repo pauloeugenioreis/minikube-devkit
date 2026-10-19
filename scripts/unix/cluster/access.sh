@@ -52,7 +52,10 @@ EOF
 # Width of the terminal on stdout (0 when unknown, e.g. output is piped).
 _access_term_cols() {
   local cols=''
-  if [ -t 1 ]; then cols="$(tput cols 2>/dev/null || stty size 2>/dev/null | cut -d' ' -f2)"; fi
+  # While the run is logged, stdout is a pipe but the terminal is still there.
+  if [ -t 1 ] || [ "${DEVKIT_TTY_OUT:-0}" = 1 ]; then
+    cols="$(stty size </dev/tty 2>/dev/null | cut -d' ' -f2)"
+  fi
   [ -n "$cols" ] || cols="${COLUMNS:-0}"
   if is_int "$cols"; then printf '%s\n' "$cols"; else printf '0\n'; fi
 }

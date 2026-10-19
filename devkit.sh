@@ -114,6 +114,12 @@ main() {
   config_load
   core_init_path
 
+  # "shell" hands the terminal to a database client, so it is not logged.
+  case "${command:-help}" in
+    help|-h|--help|version|--version|shell) ;;
+    *) log_start "$command" "$@" ;;
+  esac
+
   case "${command:-help}" in
     up)              cmd_up "$@" ;;
     configure)       cmd_configure "$@" ;;

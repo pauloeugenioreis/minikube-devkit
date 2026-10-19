@@ -97,6 +97,38 @@ function Invoke-Native {
     if ($LASTEXITCODE -ne 0) { Stop-Devkit "Command failed (exit $LASTEXITCODE): $FilePath $($Arguments -join ' ')" }
 }
 
+# Everything a command prints is also written to log/devkit-<command>-<timestamp>.log
+# (a PowerShell transcript). Only the newest $LogKeep run logs are kept.
+$script:LogFile = $null
+$script:LogKeep = 50
+
+function Start-DevkitLog {
+    param([Parameter(Mandatory)] [string] $Command)
+    try {
+        $dir = Get-DevkitLogDir
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        $file = Join-Path $dir "devkit-$Command-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        # Two runs in the same second must not share a file.
+        if (Test-Path "$file.log") { $file = "$file-$PID" }
+        $file = "$file.log"
+        Start-Transcript -Path $file -Force | Out-Null
+        $script:LogFile = $file
+        Get-ChildItem -Path $dir -Filter 'devkit-*.log' | Sort-Object LastWriteTime -Descending |
+            Select-Object -Skip $script:LogKeep | Remove-Item -Force -ErrorAction SilentlyContinue
+    } catch {
+        Write-DebugLine "Run log disabled: $($_.Exception.Message)"
+    }
+}
+
+# -Failed shows the log path, which is needed to report the problem.
+function Stop-DevkitLog {
+    param([switch] $Failed)
+    if (-not $script:LogFile) { return }
+    try { Stop-Transcript | Out-Null } catch { Write-DebugLine "Stop-Transcript: $($_.Exception.Message)" }
+    if ($Failed) { Write-Host "    Full log: log/$(Split-Path -Leaf $script:LogFile)" }
+    $script:LogFile = $null
+}
+
 function Test-Command { param([string] $Name) [bool] (Get-Command $Name -ErrorAction SilentlyContinue) }
 
 # ----------------------------------------------------------- configuration ---

@@ -84,6 +84,8 @@ components you selected):
   a pod restarts (`forward start|stop|restart|status`).
 - If a local port is busy, the next free one is used and shown in the table.
 - `info` prints the table again (`--no-secrets` / `-NoSecrets` masks passwords).
+- Everything a run prints is also saved to `log/devkit-<command>-<timestamp>.log`
+  (see [troubleshooting](docs/troubleshooting.md#run-logs)).
 - Data services run in the `devkit-data` namespace as StatefulSets with persistent
   volumes, so data survives `down`/`up`. `destroy` deletes the cluster and its data.
 - Images, versions, ports and credentials are all set in `config/devkit.env`; the

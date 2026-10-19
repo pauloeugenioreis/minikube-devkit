@@ -69,6 +69,7 @@ function Read-CliArgs {
 # Everything below runs in script scope on purpose: dependency modules are
 # dot-sourced here so their functions stay visible to the script blocks they
 # register (dot-sourcing inside a function would scope them to that function).
+$failed = $true
 try {
     $cli = Read-CliArgs $args
     if (-not (Test-IsWindowsHost) -and -not $env:DEVKIT_ALLOW_NON_WINDOWS) {
@@ -87,6 +88,8 @@ try {
         { $_ -in 'up', 'configure', 'status', 'info', 'forward', 'logs', 'shell', 'reset', 'examples', 'test', 'down', 'destroy', 'uninstall', 'doctor', 'install-prereqs' } { break }
         default { Write-Err "Unknown command: $($cli.Command)"; Show-Usage; exit 1 }
     }
+    # "shell" hands the console to a database client, so it is not logged.
+    if ($cli.Command -ne 'shell') { Start-DevkitLog $cli.Command }
 
     . (Join-Path $DevkitRoot 'scripts/windows/deps/deps.ps1')
     . (Join-Path $DevkitRoot 'scripts/windows/deps/core.ps1')
@@ -117,6 +120,7 @@ try {
         'doctor' { Invoke-Doctor $cli.Rest }
         'install-prereqs' { Invoke-InstallPrereqs $cli.Rest }
     }
+    $failed = $script:DevkitExitCode -ne 0
     exit $script:DevkitExitCode
 } catch {
     $message = $_.Exception.Message
@@ -127,4 +131,6 @@ try {
         Write-Host $_.ScriptStackTrace -ForegroundColor DarkGray
     }
     exit 1
+} finally {
+    Stop-DevkitLog -Failed:$failed
 }

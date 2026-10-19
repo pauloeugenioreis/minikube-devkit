@@ -22,6 +22,7 @@ ask_yes_no() {
   while :; do
     printf '%s %s: ' "$question" "$hint" >&2
     IFS= read -r answer || answer=''
+    log_answer "${answer:-(Enter)}"
     case "${answer:-$default}" in
       y|Y|yes|YES|Yes) return 0 ;;
       n|N|no|NO|No) return 1 ;;
@@ -39,6 +40,7 @@ ask_value() {
     if is_interactive; then
       printf '  %s [%s]: ' "$label" "$default" >&2
       IFS= read -r answer || answer=''
+      log_answer "${answer:-(Enter)}"
       answer="${answer:-$default}"
     else
       answer="$default"
@@ -83,6 +85,7 @@ select_option() {
   while :; do
     printf 'Choice [%d]: ' "$default_index" >&2
     IFS= read -r answer || answer=''
+    log_answer "${answer:-(Enter)}"
     answer="${answer:-$default_index}"
     case "$answer" in
       ''|*[!0-9]*) ;;
