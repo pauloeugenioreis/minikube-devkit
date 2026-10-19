@@ -65,7 +65,7 @@ assert_eq "$(pkg_pretty_version '5:29.9.1-1~ubuntu.26.04~resolute')" 29.9.1 'pkg
 # read any source): devkit keeps the entry whose keyring exists. Runs in a
 # subshell (as_root is stubbed) that reports its counters back through fd 3.
 counts="$( (
-  # shellcheck disable=SC2329  # called by the apt helpers
+  # shellcheck disable=SC2317,SC2329  # called by the apt helpers
   as_root() { "$@"; }
   _APT_DIR="${TMP}/apt"
   repo=https://download.docker.com/linux/ubuntu
