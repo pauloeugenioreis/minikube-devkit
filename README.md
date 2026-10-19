@@ -67,21 +67,19 @@ Proceed? [Y/n]:
 At the end of `up`, devkit prints how to reach everything it installed (only the
 components you selected):
 
-```
-+----------------------+-----------------------------------------------------------+-----------------------------------+
-| Resource             | URL / Endpoint                                            | Credentials                       |
-+----------------------+-----------------------------------------------------------+-----------------------------------+
-| Kubernetes Dashboard | http://localhost:15671                                    | (no login)                        |
-| RabbitMQ Management  | http://localhost:15672                                    | guest / guest                     |
-| RabbitMQ AMQP        | amqp://guest:guest@localhost:5672/                        | guest / guest                     |
-| MongoDB              | mongodb://devkit:devkit@localhost:27017/devkit?authSource=admin | devkit / devkit             |
-| PostgreSQL           | postgresql://devkit:devkit@localhost:5432/devkit          | devkit / devkit                   |
-| MySQL                | mysql://devkit:devkit@localhost:3306/devkit               | devkit / devkit (root: devkit)    |
-| Redis                | redis://:devkit@localhost:6379                            | password: devkit                  |
-| KEDA                 | namespace: keda (operator running)                        | -                                 |
-+----------------------+-----------------------------------------------------------+-----------------------------------+
-```
+| Resource | URL / Endpoint | Credentials |
+|---|---|---|
+| Kubernetes Dashboard | `http://localhost:15671` | (no login) |
+| RabbitMQ Management | `http://localhost:15672` | `guest` / `guest` |
+| RabbitMQ AMQP | `amqp://guest:guest@localhost:5672/` | `guest` / `guest` |
+| MongoDB | `mongodb://devkit:devkit@localhost:27017/devkit?authSource=admin` | `devkit` / `devkit` |
+| PostgreSQL | `postgresql://devkit:devkit@localhost:5432/devkit` | `devkit` / `devkit` |
+| MySQL | `mysql://devkit:devkit@localhost:3306/devkit` | `devkit` / `devkit` (root: `devkit`) |
+| Redis | `redis://:devkit@localhost:6379` | password: `devkit` |
+| KEDA | namespace `keda` (operator running) | - |
 
+- In the terminal this is a bordered table; when the window is too narrow for it,
+  each resource is printed as its own block instead, so lines never wrap.
 - The URLs work right away: port-forwards run in background and restart themselves if
   a pod restarts (`forward start|stop|restart|status`).
 - If a local port is busy, the next free one is used and shown in the table.

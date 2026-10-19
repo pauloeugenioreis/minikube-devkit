@@ -21,10 +21,45 @@ _access_border() {
     "$(printf '%*s' "$2" '' | tr ' ' '-')" "$(printf '%*s' "$3" '' | tr ' ' '-')"
 }
 
+# _access_table_rows W1 W2 W3: the rows as a bordered table.
+_access_table_rows() {
+  local w1="$1" w2="$2" w3="$3" label url creds
+  _access_border "$w1" "$w2" "$w3"
+  printf '| %-*s | %-*s | %-*s |\n' "$w1" Resource "$w2" 'URL / Endpoint' "$w3" Credentials
+  _access_border "$w1" "$w2" "$w3"
+  while IFS='|' read -r label url creds; do
+    [ -n "$label" ] || continue
+    printf '| %-*s | %-*s | %-*s |\n' "$w1" "$label" "$w2" "$url" "$w3" "$creds"
+  done <<EOF
+$_ACCESS_ROWS
+EOF
+  _access_border "$w1" "$w2" "$w3"
+}
+
+# The rows as one block per resource, for terminals narrower than the table.
+_access_list() {
+  local label url creds
+  while IFS='|' read -r label url creds; do
+    [ -n "$label" ] || continue
+    printf '\n  %s%s%s\n' "$_C_BOLD" "$label" "$_C_RESET"
+    printf '    %-13s %s\n' 'URL:' "$url"
+    [ "$creds" = '-' ] || printf '    %-13s %s\n' 'Credentials:' "$creds"
+  done <<EOF
+$_ACCESS_ROWS
+EOF
+}
+
+# Width of the terminal on stdout (0 when unknown, e.g. output is piped).
+_access_term_cols() {
+  local cols=''
+  if [ -t 1 ]; then cols="$(tput cols 2>/dev/null || stty size 2>/dev/null | cut -d' ' -f2)"; fi
+  [ -n "$cols" ] || cols="${COLUMNS:-0}"
+  if is_int "$cols"; then printf '%s\n' "$cols"; else printf '0\n'; fi
+}
 
 # access_table [--no-secrets]
 access_table() {
-  local hide=0 p label url creds w1=8 w2=14 w3=11
+  local hide=0 p label url creds cols w1=8 w2=14 w3=11
   [ "${1:-}" = --no-secrets ] && hide=1
   # mask VALUE: prints **** instead of the value with --no-secrets.
   secret() { if [ "$hide" = 1 ]; then printf '****'; else printf '%s' "$1"; fi; }
@@ -83,16 +118,13 @@ access_table() {
 $_ACCESS_ROWS
 EOF
 
-  _access_border "$w1" "$w2" "$w3"
-  printf '| %-*s | %-*s | %-*s |\n' "$w1" Resource "$w2" 'URL / Endpoint' "$w3" Credentials
-  _access_border "$w1" "$w2" "$w3"
-  while IFS='|' read -r label url creds; do
-    [ -n "$label" ] || continue
-    printf '| %-*s | %-*s | %-*s |\n' "$w1" "$label" "$w2" "$url" "$w3" "$creds"
-  done <<EOF
-$_ACCESS_ROWS
-EOF
-  _access_border "$w1" "$w2" "$w3"
+  # Borders and padding add 10 columns; switch to a list when the table would wrap.
+  cols="$(_access_term_cols)"
+  if [ "$cols" -gt 0 ] && [ $((w1 + w2 + w3 + 10)) -gt "$cols" ]; then
+    _access_list
+  else
+    _access_table_rows "$w1" "$w2" "$w3"
+  fi
 
   if [ -n "$_ACCESS_NOT_READY" ]; then
     printf '\n'

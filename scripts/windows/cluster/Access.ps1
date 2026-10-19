@@ -54,13 +54,25 @@ function Show-AccessTable {
     foreach ($row in $rows) {
         for ($i = 0; $i -lt 3; $i++) { if ($row[$i].Length -gt $w[$i]) { $w[$i] = $row[$i].Length } }
     }
-    $border = '+-' + ('-' * $w[0]) + '-+-' + ('-' * $w[1]) + '-+-' + ('-' * $w[2]) + '-+'
-    $format = "| {0,-$($w[0])} | {1,-$($w[1])} | {2,-$($w[2])} |"
-    Write-Host $border
-    Write-Host ($format -f 'Resource', 'URL / Endpoint', 'Credentials')
-    Write-Host $border
-    foreach ($row in $rows) { Write-Host ($format -f $row[0], $row[1], $row[2]) }
-    Write-Host $border
+    # Borders and padding add 10 columns; switch to a list when the table would wrap.
+    $cols = 0
+    try { $cols = $Host.UI.RawUI.WindowSize.Width } catch { $cols = 0 }
+    if ($cols -gt 0 -and ($w[0] + $w[1] + $w[2] + 10) -gt $cols) {
+        foreach ($row in $rows) {
+            Write-Host ''
+            Write-Host "  $($row[0])"
+            Write-Host ('    {0,-13} {1}' -f 'URL:', $row[1])
+            if ($row[2] -ne '-') { Write-Host ('    {0,-13} {1}' -f 'Credentials:', $row[2]) }
+        }
+    } else {
+        $border = '+-' + ('-' * $w[0]) + '-+-' + ('-' * $w[1]) + '-+-' + ('-' * $w[2]) + '-+'
+        $format = "| {0,-$($w[0])} | {1,-$($w[1])} | {2,-$($w[2])} |"
+        Write-Host $border
+        Write-Host ($format -f 'Resource', 'URL / Endpoint', 'Credentials')
+        Write-Host $border
+        foreach ($row in $rows) { Write-Host ($format -f $row[0], $row[1], $row[2]) }
+        Write-Host $border
+    }
 
     if ($notReady.Count -gt 0) {
         Write-Host ''
