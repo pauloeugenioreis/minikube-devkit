@@ -92,11 +92,11 @@ cluster_ensure() {
       log_ok "Cluster is running"
     else
       log_info "Starting the existing cluster"
-      run minikube start -p "$DEVKIT_PROFILE" || die "minikube start failed. See: minikube logs -p ${DEVKIT_PROFILE}"
+      run_tty minikube start -p "$DEVKIT_PROFILE" || die "minikube start failed. See: minikube logs -p ${DEVKIT_PROFILE}"
     fi
   else
     log_info "Creating the cluster (${DEVKIT_DRIVER}, ${DEVKIT_CPUS} CPUs, ${DEVKIT_MEMORY_MB} MB RAM, ${DEVKIT_DISK_GB} GB disk)"
-    run minikube start -p "$DEVKIT_PROFILE" \
+    run_tty minikube start -p "$DEVKIT_PROFILE" \
       --driver="$DEVKIT_DRIVER" \
       --cpus="$DEVKIT_CPUS" \
       --memory="$DEVKIT_MEMORY_MB" \

@@ -30,4 +30,8 @@ everything it printed, including prompts and answers, to
 The 50 newest run logs are kept. Attach the log when reporting a problem, but check it
 first: the access table printed by `up`/`info` contains passwords.
 
+On Linux/macOS, `minikube start` writes straight to the terminal so its download
+progress bars render correctly; its output is not in the run log (use
+`minikube logs -p devkit` instead).
+
 Logs and state live in `log/` and `.devkit/` (both git-ignored).

@@ -108,6 +108,19 @@ run() {
   "$@"
 }
 
+# Like run, but with the terminal (saved by log_start) as stdout/stderr, so
+# commands with progress bars (minikube start) can size and redraw them. That
+# output is not copied to the run log; a note is written there instead.
+run_tty() {
+  if [ -n "$_LOG_PID" ] && [ "${DEVKIT_TTY_OUT:-0}" = 1 ]; then
+    log_debug "\$ $*"
+    log_answer "[output of \"$*\" shown on the terminal only]"
+    "$@" >&3 2>&4
+  else
+    run "$@"
+  fi
+}
+
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
 # ------------------------------------------------------------ OS detection ---
