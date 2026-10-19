@@ -63,10 +63,16 @@ ${WIZARD_FLAGS_HELP}" "$@" || rc=$?
   printf '\n%s\n\n' "${_C_BOLD}${_C_GREEN}✔ minikube-devkit is ready!${_C_RESET}"
   access_table
   printf '\n'
-  log_info "Port-forwards run in background. Manage with: ./devkit.sh forward [start|stop|status]"
-  log_info "Show this again anytime:  ./devkit.sh info"
-  log_info "Stop everything:          ./devkit.sh down"
+  _up_hint 'Manage port-forwards:' './devkit.sh forward [start|stop|status]'
+  _up_hint 'Show this again:' './devkit.sh info'
+  _up_hint 'Stop everything:' './devkit.sh down'
   if is_true "$DEVKIT_INSTALL_KEDA"; then
-    log_info "See KEDA autoscale:       ./devkit.sh examples produce rabbitmq 50  (or: ./devkit.sh test keda)"
+    _up_hint 'See KEDA autoscale:' './devkit.sh examples produce rabbitmq 50'
+    _up_hint '' './devkit.sh test keda'
   fi
+}
+
+# _up_hint TEXT COMMAND: one line of the closing hints, command highlighted.
+_up_hint() {
+  printf '    %-22s %s%s%s\n' "$1" "$_C_CYAN" "$2" "$_C_RESET"
 }

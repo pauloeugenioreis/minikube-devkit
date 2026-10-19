@@ -31,18 +31,28 @@ _access_host_add() {
 _access_host_section() {
   local label port details
   [ -n "$_ACCESS_HOST" ] || return 0
-  printf '\n%sConnect from outside Kubernetes%s\n' "$_C_BOLD" "$_C_RESET"
-  log_info 'Apps, IDEs and database clients on this machine use host "localhost" and:'
+  log_step 'Connect from outside Kubernetes'
+  printf '    Apps, IDEs and database clients on this machine use host %slocalhost%s and:\n' \
+    "$_C_GREEN" "$_C_RESET"
   while IFS='|' read -r label port details; do
     [ -n "$label" ] || continue
-    printf '      %-11s port %-6s %s\n' "$label" "$port" "$details"
+    printf '      %s%-11s%s %sport%s %s%-6s%s %s\n' "${_C_BOLD}${_C_CYAN}" "$label" "$_C_RESET" \
+      "$_C_DIM" "$_C_RESET" "$_C_GREEN" "$port" "$_C_RESET" "$details"
   done <<EOF
 $_ACCESS_HOST
 EOF
-  log_info 'Passwords are in the table above. Ports listen on 127.0.0.1 only: other'
-  log_info 'machines cannot connect. From a container on this machine use'
-  log_info '"docker run --network host" (Linux) or host "host.docker.internal" (Docker Desktop).'
-  log_info "Pods inside the cluster use <service>.${DEVKIT_NAMESPACE}:<port> (e.g. postgresql.${DEVKIT_NAMESPACE}:5432)."
+  printf '%s' "$_C_DIM"
+  log_info 'Passwords are in the table above. Ports listen on 127.0.0.1 only:'
+  log_info 'other machines cannot connect. Containers on this machine use'
+  log_info '"--network host" (Linux) or "host.docker.internal" (Docker Desktop).'
+  log_info "Pods inside the cluster use <service>.${DEVKIT_NAMESPACE}:<port>,"
+  log_info "e.g. postgresql.${DEVKIT_NAMESPACE}:5432"
+  printf '%s' "$_C_RESET"
+}
+
+# _access_url_color URL: color of a URL cell (red when the component is down).
+_access_url_color() {
+  if [ "$1" = 'NOT READY' ]; then printf '%s' "${_C_BOLD}${_C_RED}"; else printf '%s' "$_C_GREEN"; fi
 }
 
 _access_border() {
@@ -54,11 +64,16 @@ _access_border() {
 _access_table_rows() {
   local w1="$1" w2="$2" w3="$3" label url creds
   _access_border "$w1" "$w2" "$w3"
-  printf '| %-*s | %-*s | %-*s |\n' "$w1" Resource "$w2" 'URL / Endpoint' "$w3" Credentials
+  printf '| %s%-*s%s | %s%-*s%s | %s%-*s%s |\n' "$_C_BOLD" "$w1" Resource "$_C_RESET" \
+    "$_C_BOLD" "$w2" 'URL / Endpoint' "$_C_RESET" "$_C_BOLD" "$w3" Credentials "$_C_RESET"
   _access_border "$w1" "$w2" "$w3"
+  # Colors wrap the padded text so they do not count towards the widths.
   while IFS='|' read -r label url creds; do
     [ -n "$label" ] || continue
-    printf '| %-*s | %-*s | %-*s |\n' "$w1" "$label" "$w2" "$url" "$w3" "$creds"
+    printf '| %s%-*s%s | %s%-*s%s | %s%-*s%s |\n' \
+      "${_C_BOLD}${_C_CYAN}" "$w1" "$label" "$_C_RESET" \
+      "$(_access_url_color "$url")" "$w2" "$url" "$_C_RESET" \
+      "$_C_YELLOW" "$w3" "$creds" "$_C_RESET"
   done <<EOF
 $_ACCESS_ROWS
 EOF
@@ -70,9 +85,9 @@ _access_list() {
   local label url creds
   while IFS='|' read -r label url creds; do
     [ -n "$label" ] || continue
-    printf '\n  %s%s%s\n' "$_C_BOLD" "$label" "$_C_RESET"
-    printf '    %-13s %s\n' 'URL:' "$url"
-    [ "$creds" = '-' ] || printf '    %-13s %s\n' 'Credentials:' "$creds"
+    printf '\n  %s%s%s\n' "${_C_BOLD}${_C_CYAN}" "$label" "$_C_RESET"
+    printf '    %s%-13s%s %s%s%s\n' "$_C_DIM" 'URL:' "$_C_RESET" "$(_access_url_color "$url")" "$url" "$_C_RESET"
+    [ "$creds" = '-' ] || printf '    %s%-13s%s %s%s%s\n' "$_C_DIM" 'Credentials:' "$_C_RESET" "$_C_YELLOW" "$creds" "$_C_RESET"
   done <<EOF
 $_ACCESS_ROWS
 EOF

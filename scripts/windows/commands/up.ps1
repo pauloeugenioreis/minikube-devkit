@@ -56,11 +56,19 @@ function Invoke-Up {
     Write-Host ''
     Show-AccessTable
     Write-Host ''
-    Write-Info 'Port-forwards run in background. Manage with: .\devkit.ps1 forward [start|stop|status]'
-    Write-Info 'Show this again anytime:  .\devkit.ps1 info'
-    Write-Info 'Stop everything:          .\devkit.ps1 down'
+    Write-UpHint 'Manage port-forwards:' '.\devkit.ps1 forward [start|stop|status]'
+    Write-UpHint 'Show this again:' '.\devkit.ps1 info'
+    Write-UpHint 'Stop everything:' '.\devkit.ps1 down'
     if (Test-True (Get-Cfg 'DEVKIT_INSTALL_KEDA')) {
-        Write-Info 'See KEDA autoscale:       .\devkit.ps1 examples produce rabbitmq 50  (or: .\devkit.ps1 test keda)'
+        Write-UpHint 'See KEDA autoscale:' '.\devkit.ps1 examples produce rabbitmq 50'
+        Write-UpHint '' '.\devkit.ps1 test keda'
     }
     return
+}
+
+# One line of the closing hints, command highlighted.
+function Write-UpHint {
+    param([string] $Text, [string] $Command)
+    Write-Host ('    {0,-22} ' -f $Text) -NoNewline
+    Write-Host $Command -ForegroundColor Cyan
 }

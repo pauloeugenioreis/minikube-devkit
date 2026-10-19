@@ -72,17 +72,20 @@ function Show-AccessTable {
     if ($cols -gt 0 -and ($w[0] + $w[1] + $w[2] + 10) -gt $cols) {
         foreach ($row in $rows) {
             Write-Host ''
-            Write-Host "  $($row[0])"
-            Write-Host ('    {0,-13} {1}' -f 'URL:', $row[1])
-            if ($row[2] -ne '-') { Write-Host ('    {0,-13} {1}' -f 'Credentials:', $row[2]) }
+            Write-Host "  $($row[0])" -ForegroundColor Cyan
+            Write-Host ('    {0,-13} ' -f 'URL:') -ForegroundColor DarkGray -NoNewline
+            Write-Host $row[1] -ForegroundColor (Get-AccessUrlColor $row[1])
+            if ($row[2] -ne '-') {
+                Write-Host ('    {0,-13} ' -f 'Credentials:') -ForegroundColor DarkGray -NoNewline
+                Write-Host $row[2] -ForegroundColor Yellow
+            }
         }
     } else {
         $border = '+-' + ('-' * $w[0]) + '-+-' + ('-' * $w[1]) + '-+-' + ('-' * $w[2]) + '-+'
-        $format = "| {0,-$($w[0])} | {1,-$($w[1])} | {2,-$($w[2])} |"
         Write-Host $border
-        Write-Host ($format -f 'Resource', 'URL / Endpoint', 'Credentials')
+        Write-AccessRow $w @('Resource', 'URL / Endpoint', 'Credentials') @('White', 'White', 'White')
         Write-Host $border
-        foreach ($row in $rows) { Write-Host ($format -f $row[0], $row[1], $row[2]) }
+        foreach ($row in $rows) { Write-AccessRow $w $row @('Cyan', (Get-AccessUrlColor $row[1]), 'Yellow') }
         Write-Host $border
     }
 
@@ -90,19 +93,45 @@ function Show-AccessTable {
     # and database clients running on this machine.
     if ($hostRows.Count -gt 0) {
         $ns = Get-Cfg 'DEVKIT_NAMESPACE'
-        Write-Host ''
-        Write-Host 'Connect from outside Kubernetes'
-        Write-Info 'Apps, IDEs and database clients on this machine use host "localhost" and:'
-        foreach ($row in $hostRows) { Write-Host ('      {0,-11} port {1,-6} {2}' -f $row[0], $row[1], $row[2]) }
-        Write-Info 'Passwords are in the table above. Ports listen on 127.0.0.1 only: other'
-        Write-Info 'machines cannot connect. From a container on this machine use'
-        Write-Info '"docker run --network host" (Linux) or host "host.docker.internal" (Docker Desktop).'
-        Write-Info "Pods inside the cluster use <service>.${ns}:<port> (e.g. postgresql.${ns}:5432)."
+        Write-Step 'Connect from outside Kubernetes'
+        Write-Host '    Apps, IDEs and database clients on this machine use host ' -NoNewline
+        Write-Host 'localhost' -ForegroundColor Green -NoNewline
+        Write-Host ' and:'
+        foreach ($row in $hostRows) {
+            Write-Host ('      {0,-11} ' -f $row[0]) -ForegroundColor Cyan -NoNewline
+            Write-Host 'port ' -ForegroundColor DarkGray -NoNewline
+            Write-Host ('{0,-6} ' -f $row[1]) -ForegroundColor Green -NoNewline
+            Write-Host $row[2]
+        }
+        foreach ($line in @(
+                'Passwords are in the table above. Ports listen on 127.0.0.1 only:',
+                'other machines cannot connect. Containers on this machine use',
+                '"--network host" (Linux) or "host.docker.internal" (Docker Desktop).',
+                "Pods inside the cluster use <service>.${ns}:<port>,",
+                "e.g. postgresql.${ns}:5432")) {
+            Write-Host "    $line" -ForegroundColor DarkGray
+        }
     }
 
     if ($notReady.Count -gt 0) {
         Write-Host ''
         Write-Warn "Not ready: $($notReady -join ' '). Check the pods with: kubectl --context $(Get-Cfg 'DEVKIT_PROFILE') get pods -A"
         Write-Info 'If the cluster is up but URLs do not answer, restart the port-forwards: .\devkit.ps1 forward start'
+    }
+}
+
+# Color of a URL cell (red when the component is down).
+function Get-AccessUrlColor {
+    param([string] $Url)
+    if ($Url -eq 'NOT READY') { 'Red' } else { 'Green' }
+}
+
+# One table row; colors wrap the padded text so they do not change the widths.
+function Write-AccessRow {
+    param([int[]] $Widths, [string[]] $Cells, [string[]] $Colors)
+    Write-Host '| ' -NoNewline
+    for ($i = 0; $i -lt 3; $i++) {
+        Write-Host ("{0,-$($Widths[$i])}" -f $Cells[$i]) -ForegroundColor $Colors[$i] -NoNewline
+        if ($i -lt 2) { Write-Host ' | ' -NoNewline } else { Write-Host ' |' }
     }
 }

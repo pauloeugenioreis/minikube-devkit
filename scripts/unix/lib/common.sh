@@ -15,8 +15,10 @@ DEVKIT_EXIT_PENDING=10
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
   _C_RESET=$'\033[0m'; _C_BOLD=$'\033[1m'; _C_DIM=$'\033[2m'
   _C_RED=$'\033[31m'; _C_GREEN=$'\033[32m'; _C_YELLOW=$'\033[33m'; _C_BLUE=$'\033[34m'
+  _C_CYAN=$'\033[36m'
 else
   _C_RESET=''; _C_BOLD=''; _C_DIM=''; _C_RED=''; _C_GREEN=''; _C_YELLOW=''; _C_BLUE=''
+  _C_CYAN=''
 fi
 
 log_step()  { printf '\n%s==> %s%s\n' "${_C_BOLD}${_C_BLUE}" "$*" "${_C_RESET}"; }

@@ -98,8 +98,8 @@ to `localhost` on the ports of the table. Below the table, `up` and `info` also 
 fields that GUI clients such as DBeaver, MongoDB Compass or RedisInsight ask for:
 
 ```
-Connect from outside Kubernetes
-    Apps, IDEs and database clients on this machine use host "localhost" and:
+==> Connect from outside Kubernetes
+    Apps, IDEs and database clients on this machine use host localhost and:
       RabbitMQ    port 5672   user guest  vhost /  (AMQP)
       MongoDB     port 27017  user devkit  database devkit  (authSource=admin)
       PostgreSQL  port 5432   user devkit  database devkit
