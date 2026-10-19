@@ -91,6 +91,47 @@ components you selected):
 - Images, versions, ports and credentials are all set in `config/devkit.env`; the
   manifests in [`k8s/`](k8s/) are templates rendered from it.
 
+## Connecting from outside Kubernetes
+
+Apps, IDEs and database clients running on your machine (outside the cluster) connect
+to `localhost` on the ports of the table. Below the table, `up` and `info` also print the
+fields that GUI clients such as DBeaver, MongoDB Compass or RedisInsight ask for:
+
+```
+Connect from outside Kubernetes
+    Apps, IDEs and database clients on this machine use host "localhost" and:
+      RabbitMQ    port 5672   user guest  vhost /  (AMQP)
+      MongoDB     port 27017  user devkit  database devkit  (authSource=admin)
+      PostgreSQL  port 5432   user devkit  database devkit
+      MySQL       port 3306   user devkit  database devkit  (or root)
+      Redis       port 6379   password only (no user)
+```
+
+Examples with the default credentials:
+
+```bash
+mongosh "mongodb://devkit:devkit@localhost:27017/devkit?authSource=admin"
+PGPASSWORD=devkit psql -h localhost -p 5432 -U devkit -d devkit
+mysql -h 127.0.0.1 -P 3306 -u devkit -pdevkit devkit     # 127.0.0.1: "localhost" means the Unix socket
+redis-cli -h localhost -p 6379 -a devkit ping
+curl -u guest:guest http://localhost:15672/api/overview  # RabbitMQ management API
+```
+
+In application config, use the connection strings of the table, for example
+`DATABASE_URL=postgresql://devkit:devkit@localhost:5432/devkit` or
+`AMQP_URL=amqp://guest:guest@localhost:5672/`.
+
+- **No clients installed?** Run them in Docker with host networking, e.g.
+  `docker run --rm -it --network host postgres:18-alpine psql -h 127.0.0.1 -U devkit devkit`.
+- **Containers on this machine** reach the services with `--network host` (Linux) or
+  the host `host.docker.internal` (Docker Desktop on macOS/Windows).
+- **Other machines** cannot connect: port-forwards listen on `127.0.0.1` only.
+- **Apps inside the cluster** use the service names instead, e.g.
+  `postgresql.devkit-data:5432` (see [Services](docs/services.md)).
+- **Nothing answers?** Check `./devkit.sh forward status` and restart with
+  `./devkit.sh forward restart`. Port-forwards stop with `down` and after a reboot;
+  `up` starts them again.
+
 ## What `install-prereqs` does
 
 Every dependency goes through **check → install → configure → verify**. Nothing is

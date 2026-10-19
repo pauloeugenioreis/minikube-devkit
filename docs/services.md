@@ -14,7 +14,9 @@ All values come from `config/devkit.env`; the table shows the defaults.
 | KEDA | — | — | namespace `keda` |
 
 - **Local endpoints** work through background port-forwards (`devkit forward ...`). If a
-  port is busy, the next free one is used and shown by `devkit info`.
+  port is busy, the next free one is used and shown by `devkit info`. See
+  [Connecting from outside Kubernetes](../README.md#connecting-from-outside-kubernetes)
+  for client examples.
 - **In-cluster addresses** are for your own workloads running in minikube
   (`<service>.<namespace>.svc.cluster.local` also works).
 - Data services are StatefulSets with persistent volumes in `devkit-data`: data survives

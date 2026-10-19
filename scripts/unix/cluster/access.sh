@@ -3,6 +3,7 @@
 
 _ACCESS_ROWS=''
 _ACCESS_NOT_READY=''
+_ACCESS_HOST=''
 
 # _access_add LABEL URL CREDENTIALS COMPONENT [FORWARD_NAME PORT]
 _access_add() {
@@ -14,6 +15,34 @@ _access_add() {
   fi
   _ACCESS_ROWS="${_ACCESS_ROWS}${label}|${url}|${creds}
 "
+}
+
+# _access_host_add LABEL PORT DETAILS COMPONENT: a line of the "connect from
+# outside Kubernetes" section (only for components that answer).
+_access_host_add() {
+  if component_ready "$4" && port_in_use "$2"; then
+    _ACCESS_HOST="${_ACCESS_HOST}${1}|${2}|${3}
+"
+  fi
+}
+
+# Host, port, user and database of each data service, as asked by apps, IDEs
+# and database clients running on this machine.
+_access_host_section() {
+  local label port details
+  [ -n "$_ACCESS_HOST" ] || return 0
+  printf '\n%sConnect from outside Kubernetes%s\n' "$_C_BOLD" "$_C_RESET"
+  log_info 'Apps, IDEs and database clients on this machine use host "localhost" and:'
+  while IFS='|' read -r label port details; do
+    [ -n "$label" ] || continue
+    printf '      %-11s port %-6s %s\n' "$label" "$port" "$details"
+  done <<EOF
+$_ACCESS_HOST
+EOF
+  log_info 'Passwords are in the table above. Ports listen on 127.0.0.1 only: other'
+  log_info 'machines cannot connect. From a container on this machine use'
+  log_info '"docker run --network host" (Linux) or host "host.docker.internal" (Docker Desktop).'
+  log_info "Pods inside the cluster use <service>.${DEVKIT_NAMESPACE}:<port> (e.g. postgresql.${DEVKIT_NAMESPACE}:5432)."
 }
 
 _access_border() {
@@ -69,6 +98,7 @@ access_table() {
 
   _ACCESS_ROWS=''
   _ACCESS_NOT_READY=''
+  _ACCESS_HOST=''
 
   if is_true "$DEVKIT_INSTALL_DASHBOARD"; then
     p="$(forward_port dashboard DEVKIT_PORT_DASHBOARD)"
@@ -81,26 +111,31 @@ access_table() {
     p="$(forward_port rabbitmq-amqp DEVKIT_PORT_RABBITMQ_AMQP)"
     _access_add 'RabbitMQ AMQP' "amqp://${DEVKIT_RABBITMQ_USER}:$(secret "$DEVKIT_RABBITMQ_PASSWORD")@localhost:${p}/" \
       "${DEVKIT_RABBITMQ_USER} / $(secret "$DEVKIT_RABBITMQ_PASSWORD")" rabbitmq rabbitmq-amqp "$p"
+    _access_host_add 'RabbitMQ' "$p" "user ${DEVKIT_RABBITMQ_USER}  vhost /  (AMQP)" rabbitmq
   fi
   if is_true "$DEVKIT_INSTALL_MONGODB"; then
     p="$(forward_port mongodb DEVKIT_PORT_MONGODB)"
     _access_add 'MongoDB' "mongodb://${DEVKIT_MONGODB_USER}:$(secret "$DEVKIT_MONGODB_PASSWORD")@localhost:${p}/${DEVKIT_MONGODB_DATABASE}?authSource=admin" \
       "${DEVKIT_MONGODB_USER} / $(secret "$DEVKIT_MONGODB_PASSWORD")" mongodb mongodb "$p"
+    _access_host_add 'MongoDB' "$p" "user ${DEVKIT_MONGODB_USER}  database ${DEVKIT_MONGODB_DATABASE}  (authSource=admin)" mongodb
   fi
   if is_true "$DEVKIT_INSTALL_POSTGRESQL"; then
     p="$(forward_port postgresql DEVKIT_PORT_POSTGRESQL)"
     _access_add 'PostgreSQL' "postgresql://${DEVKIT_POSTGRESQL_USER}:$(secret "$DEVKIT_POSTGRESQL_PASSWORD")@localhost:${p}/${DEVKIT_POSTGRESQL_DATABASE}" \
       "${DEVKIT_POSTGRESQL_USER} / $(secret "$DEVKIT_POSTGRESQL_PASSWORD")" postgresql postgresql "$p"
+    _access_host_add 'PostgreSQL' "$p" "user ${DEVKIT_POSTGRESQL_USER}  database ${DEVKIT_POSTGRESQL_DATABASE}" postgresql
   fi
   if is_true "$DEVKIT_INSTALL_MYSQL"; then
     p="$(forward_port mysql DEVKIT_PORT_MYSQL)"
     _access_add 'MySQL' "mysql://${DEVKIT_MYSQL_USER}:$(secret "$DEVKIT_MYSQL_PASSWORD")@localhost:${p}/${DEVKIT_MYSQL_DATABASE}" \
       "${DEVKIT_MYSQL_USER} / $(secret "$DEVKIT_MYSQL_PASSWORD") (root: $(secret "$DEVKIT_MYSQL_ROOT_PASSWORD"))" mysql mysql "$p"
+    _access_host_add 'MySQL' "$p" "user ${DEVKIT_MYSQL_USER}  database ${DEVKIT_MYSQL_DATABASE}  (or root)" mysql
   fi
   if is_true "$DEVKIT_INSTALL_REDIS"; then
     p="$(forward_port redis DEVKIT_PORT_REDIS)"
     _access_add 'Redis' "redis://:$(secret "$DEVKIT_REDIS_PASSWORD")@localhost:${p}" \
       "password: $(secret "$DEVKIT_REDIS_PASSWORD")" redis redis "$p"
+    _access_host_add 'Redis' "$p" 'password only (no user)' redis
   fi
   if is_true "$DEVKIT_INSTALL_KEDA"; then
     _access_add 'KEDA' 'namespace: keda (operator running)' '-' keda
@@ -128,6 +163,7 @@ EOF
   else
     _access_table_rows "$w1" "$w2" "$w3"
   fi
+  _access_host_section
 
   if [ -n "$_ACCESS_NOT_READY" ]; then
     printf '\n'
