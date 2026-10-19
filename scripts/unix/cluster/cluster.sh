@@ -6,7 +6,7 @@ kube() { kubectl --context "$DEVKIT_PROFILE" "$@"; }
 # Replaces every ${DEVKIT_*} placeholder in a template with its config value.
 # Other $VARS are left untouched. Unknown DEVKIT_ keys are an error.
 render_template() {
-  local file="$1" line name value rest
+  local file="$1" line name value rest token out
   while IFS= read -r line || [ -n "$line" ]; do
     rest="$line"
     while :; do
@@ -20,8 +20,17 @@ render_template() {
         die "Template ${file#"$DEVKIT_ROOT"/} uses \${${name}}, which is not defined in config/devkit.env"
       fi
       value="${!name}"
-      # Quoted replacement: no pattern or "&" interpretation of the value.
-      line="${line//"\${${name}}"/"$value"}"
+      # Splits around each occurrence instead of ${line//pat/rep}: bash 3.2
+      # (macOS) keeps quotes in the replacement literally, while bash >= 5.2
+      # needs them to stop "&" from expanding to the match.
+      token="\${${name}}"
+      out=''
+      while :; do
+        case "$line" in *"$token"*) ;; *) break ;; esac
+        out="${out}${line%%"$token"*}${value}"
+        line="${line#*"$token"}"
+      done
+      line="${out}${line}"
       rest="${rest#*\$\{"${name}"\}}"
     done
     printf '%s\n' "$line"
