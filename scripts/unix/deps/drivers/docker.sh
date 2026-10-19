@@ -112,8 +112,8 @@ EOF
   arch="$(dpkg --print-architecture)"
   printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/%s %s stable\n' \
     "$arch" "$distro" "$codename" | as_root tee /etc/apt/sources.list.d/docker.list >/dev/null
-  state_list_add INSTALLED_FILES /etc/apt/keyrings/docker.asc
-  state_list_add INSTALLED_FILES /etc/apt/sources.list.d/docker.list
+  # The keyring and source list are not recorded in INSTALLED_FILES on
+  # purpose: uninstall keeps Docker's apt repository configured.
   pkg_refresh_reset
   pkg_install docker-ce docker-ce-cli containerd.io docker-buildx-plugin
 }
